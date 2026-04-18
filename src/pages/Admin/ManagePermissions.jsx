@@ -5,6 +5,7 @@ import { AuthContext } from "../../providers/AuthProvider";
 import toast from "react-hot-toast";
 import { HiShieldCheck } from "react-icons/hi2";
 import SectionTitle from '../../components/common/SectionTitle'; // Added standard SectionTitle
+import OfflineComponent from '../../components/common/offlineComponent'; // Capitalized for React
 
 // ✅ Fixed Roles
 const ROLES = ["Compounders", "Assistants", "Doctor"];
@@ -81,8 +82,25 @@ const ManagePermissions = () => {
   const [permissions, setPermissions] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // --- ADDED: Network tracking state ---
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
   const { user } = useContext(AuthContext);
   const axiosSecure = UseAxiosSecure();
+
+  // --- ADDED: Listen for network changes ---
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // =======================
   // Fetch Permissions
@@ -118,6 +136,11 @@ const ManagePermissions = () => {
   };
 
   const allMenuItems = menuItems();
+
+  // --- ADDED: Show warning if offline ---
+  if (!isOnline) {
+    return <OfflineComponent />;
+  }
 
   return (
     <div className="p-4 md:p-6 bg-base-100 dark:bg-casual-black min-h-screen font-primary text-casual-black dark:text-concrete transition-colors">

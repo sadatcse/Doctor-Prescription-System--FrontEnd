@@ -8,6 +8,7 @@ import useThemeMode from "../Hook/useThemeMode";
 
 const Header = ({ isSidebarOpen, toggleSidebar }) => {
   const [isProfileOpen, setProfileOpen] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine); // ADDED: Network state
   const { user, logoutUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -18,6 +19,20 @@ const Header = ({ isSidebarOpen, toggleSidebar }) => {
   useEffect(() => {
     console.log(`Theme Updated to: ${mode}`);
   }, [mode]);
+
+  // ADDED: Network listener effect
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     await logoutUser();
@@ -49,6 +64,13 @@ const Header = ({ isSidebarOpen, toggleSidebar }) => {
       </div>
 
       <div className="flex items-center gap-4">
+        
+        {/* ADDED: Internet Status Light */}
+        <div 
+          className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}
+          title={isOnline ? "Online" : "Offline"}
+        ></div>
+
         {/* Theme switch button (icon changes by mode) */}
         <button
           onClick={toggleMode}

@@ -10,6 +10,21 @@ import useChamber from '../../Hook/useChamber';
 import useDoctorProfile from '../../Hook/useDoctorProfile';
 import { AuthContext } from '../../providers/AuthProvider';
 
+
+
+// function checkingOnlineStatus() {
+//   setInterval(() => {
+//     if (navigator.onLine) {
+//       console.log("You are online");
+//     } else {
+//       console.log("You are offline");
+//     }  }, 5000); // Check every 5 seconds
+  
+// }
+
+// checkingOnlineStatus();
+
+
 // Note: Ensure this matches the import in your parent component. 
 // If your parent imports "PrescriptionFormModal", you might want to rename this function to PrescriptionFormModal.
 export default function CreatePrescription({ isOpen, onClose, onSuccess, prescription = null }) {

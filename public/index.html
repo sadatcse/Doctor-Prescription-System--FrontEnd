@@ -67,5 +67,24 @@
   <body class="bg-white text-base-content">
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+
+
+    <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      .then(function(registration) {
+        console.log('Service Worker Registered Successfully');
+      })
+      .catch(function(error) {
+        console.log('Service Worker Registration Failed:', error);
+      });
+
+    navigator.serviceWorker.ready.then(function(registration) {
+      console.log('Service Worker is Ready');
+    });
+  }
+</script>
+
+
   </body>
 </html>
