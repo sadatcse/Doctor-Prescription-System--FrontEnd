@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../../providers/AuthProvider';
 import { useEmailAccount } from '../../Hook/useEmailAccount';
 import SectionTitle from '../../components/common/SectionTitle'; 
+import OfflineWarning from '../../components/common/offlineComponent';
 
 // Import React Icons
 import { 
@@ -66,6 +67,24 @@ const EmailAccount = () => {
     }
   };
 
+   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+   useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   useEffect(() => {
     fetchProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,6 +123,11 @@ const EmailAccount = () => {
       alert("Failed to save email configuration.");
     }
   };
+
+    if (!isOnline) {
+    return <OfflineWarning />;
+  }
+
 
   const handleDelete = async () => {
     if (!accountId) return;

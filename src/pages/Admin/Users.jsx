@@ -6,6 +6,7 @@ import BranchUserFormModal from '../../components/modal/BranchUserFormModal';
 import BranchPasswordResetModal from '../../components/modal/BranchPasswordResetModal';
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal';
 import SectionTitle from '../../components/common/SectionTitle';
+import OfflineWarning from '../../components/common/offlineComponent';
 
 const ROLES = ["Compounders", "Assistants", "Doctor"];
 
@@ -30,6 +31,24 @@ const Users = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+   const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+
+   useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [userForPasswordReset, setUserForPasswordReset] = useState(null);
@@ -88,6 +107,10 @@ const Users = () => {
     }
   };
 
+      if (!isOnline) {
+    return <OfflineWarning />;
+  }
+
   // Helper to render status
   const renderStatusBadge = (status) => {
     const s = status?.toLowerCase() || 'active';
@@ -125,6 +148,7 @@ const Users = () => {
       </div>
     );
   };
+
 
   return (
     <div className="p-4 md:p-6 bg-base-100 dark:bg-casual-black min-h-screen font-primary text-casual-black dark:text-concrete transition-colors">

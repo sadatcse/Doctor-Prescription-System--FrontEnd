@@ -4,7 +4,7 @@ import useDoctorProfile from '../../Hook/useDoctorProfile';
 import useLocationData from '../../Hook/useLocationData';
 import ImageUpload from '../../config/ImageUploadcpanel';
 import SectionTitle from '../../components/common/SectionTitle'; // <-- Update this path to where your SectionTitle is saved
-
+import OfflineWarning from '../../components/common/offlineComponent';
 // Import React Icons
 import { 
   HiOutlineUser, 
@@ -24,6 +24,23 @@ const Profile = () => {
 
   const [profileId, setProfileId] = useState(null);
   const [fetching, setFetching] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -105,6 +122,13 @@ const Profile = () => {
       alert("Failed to update profile.");
     }
   };
+
+
+      if (!isOnline) {
+
+    return <OfflineWarning />;
+
+  }
 
   if (fetching) {
     return (

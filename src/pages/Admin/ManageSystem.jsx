@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../../providers/AuthProvider';
 import SectionTitle from '../../components/common/SectionTitle';
 import useSystemPreference from '../../Hook/useSystemPreference';
+import OfflineWarning from '../../components/common/offlineComponent';
 
 // Dynamic Timezone Data from your assets folder
 import timezonesData from './../../assets/Json/Timezone.json';
@@ -10,6 +11,23 @@ const SystemPreferences = () => {
   const { branch, refreshPreferences } = useContext(AuthContext);
   const { getPreferenceByBranch, upsertPreference } = useSystemPreference();
   const [isSaving, setIsSaving] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -59,6 +77,11 @@ const SystemPreferences = () => {
       setIsSaving(false);
     }
   };
+
+    if (!isOnline) {
+    return <OfflineWarning />;
+  }
+
 
   return (
     <div className="p-4 md:p-6 bg-base-100 dark:bg-casual-black min-h-screen font-primary text-casual-black dark:text-concrete transition-colors">

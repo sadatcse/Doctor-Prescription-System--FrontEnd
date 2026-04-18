@@ -1,6 +1,33 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
+import OfflineWarning from '../../components/common/offlineComponent';
+
 
 const SendSms = () => {
+
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+
+    if (!isOnline) {
+    return <OfflineWarning />;
+  }
   return (
     <div className="p-4 md:p-8 min-h-[80vh] flex flex-col items-center justify-center text-center">
       <div className="bg-slate-50 dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-gray-700 max-w-md">

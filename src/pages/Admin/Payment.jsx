@@ -6,6 +6,7 @@ import useChamber from '../../Hook/useChamber';
 import Pagination from '../../components/common/Pagination';
 import SectionTitle from '../../components/common/SectionTitle';
 import dayjs from 'dayjs';
+import OfflineWarning from '../../components/common/offlineComponent';
 
 const Payment = () => {
     const { branch } = useContext(AuthContext);
@@ -16,6 +17,24 @@ const Payment = () => {
     const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'));
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+
+    useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
     // Data State
     const [chambers, setChambers] = useState([]);
@@ -105,6 +124,11 @@ const Payment = () => {
     };
 
     const isToday = selectedDate === dayjs().format('YYYY-MM-DD');
+
+    
+          if (!isOnline) {
+        return <OfflineWarning />;
+      }
 
     return (
         <div className="p-4 md:p-6 bg-base-100 dark:bg-casual-black min-h-screen font-primary text-casual-black dark:text-concrete transition-colors">

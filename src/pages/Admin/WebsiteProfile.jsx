@@ -3,6 +3,7 @@ import { Save, Eye, Globe, Award, Stethoscope, BarChart3, MessageSquare, Share2,
 import { AuthContext } from '../../providers/AuthProvider';
 import useDoctorWebsite from '../../Hook/useDoctorWebsite';
 import ImageUpload from '../../config/ImageUploadcpanel'; // Imported ImageUpload
+import OfflineWarning from '../../components/common/offlineComponent';
 
 const WebsiteProfileEditor = () => {
     const [activeTab, setActiveTab] = useState('Hero Info');
@@ -10,6 +11,24 @@ const WebsiteProfileEditor = () => {
 
     const { getWebsiteByBranch, createWebsite, updateWebsite, loading } = useDoctorWebsite();
     const [existingId, setExistingId] = useState(null);
+      const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+
+      useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
     // Initial State Structure
     const initialState = {
@@ -118,6 +137,15 @@ const WebsiteProfileEditor = () => {
             alert("Failed to save profile. Check console for details.");
         }
     };
+
+    
+    if (!isOnline) {
+
+    return <OfflineWarning />;
+
+  }
+
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 pb-24 font-sans">

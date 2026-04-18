@@ -7,6 +7,7 @@ import { useNews } from '../../Hook/useNews';
 import SectionTitle from '../../components/common/SectionTitle';
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal';
 import NewsFormModal from '../../components/modal/NewsFormModal';
+import OfflineWarning from '../../components/common/offlineComponent';
 
 const CATEGORIES = [
     "General Health",
@@ -66,6 +67,29 @@ const Blog = () => {
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [postToDelete, setPostToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+
+    
+useEffect(() => {
+    // Functions to update the state
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    // Listen for changes
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Cleanup listeners when the component unmounts
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+
+ 
+
 
     // Fetch News List
     const fetchNews = useCallback(async () => {
@@ -143,6 +167,12 @@ const Blog = () => {
             setIsDeleting(false);
         }
     };
+
+
+       if (!isOnline) {
+    return <OfflineWarning />;
+  }
+
 
     return (
         <div className="p-4 md:p-6 bg-base-100 dark:bg-casual-black min-h-screen font-primary text-casual-black dark:text-concrete transition-colors">
