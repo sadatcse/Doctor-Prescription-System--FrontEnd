@@ -5,7 +5,7 @@ import Error404 from "../pages/Error404/Error";
 import Login from "../pages/Login/Login";
 import Root from "./Root/Root";
 import PrivateRoot from "./Root/PrivateRoot";
-
+import PermissionPrivateRoute from "./Root/PermissionPrivateRoute";
 // Admin Imports
 import Aroot from "./Root/Admin/Aroot";
 // import HomeA from "../pages/Dashboard/Home";
@@ -23,11 +23,20 @@ import ManagePermissions from "../pages/Admin/ManagePermissions";
 import ManageEmail from "../pages/Admin/ManageEmail";
 import ManageSms from "../pages/Admin/ManageSms";
 import ManageSystem from "../pages/Admin/ManageSystem";
-import Logout from "../pages/Admin/Logout";
+import WebsiteProfile from "../pages/Admin/WebsiteProfile";
+import CreatePrescription from "../pages/Admin/CreatePrescription";
+import PrescriptionTemplate from "../pages/Admin/PrescriptionTemplate";
+import AdminBlog from "../pages/Admin/Blog";
+import SoftwareLanding from "../pages/SoftwareLanding";
 
+// Software Landing Legal Pages
+import SoftwareTerms from "../pages/SoftwareLegal/TermsOfService";
+import SoftwarePrivacyPolicy from "../pages/SoftwareLegal/PrivacyPolicy";
+import SoftwareCookiePolicy from "../pages/SoftwareLegal/CookiePolicy";
+import SoftwareRefundPolicy from "../pages/SoftwareLegal/RefundPolicy";
 
-import SAroot from "./Root/Superadmin/Sroot"; 
-import SuperAdminHome from "../pages/Superadmin/Home"; 
+import SAroot from "./Root/Superadmin/Sroot";
+import SuperAdminHome from "../pages/Superadmin/Home";
 import SADashboard from "../pages/Superadmin/Dashboard";
 import MedicineList from "../pages/Superadmin/MedicineList";
 import MedicineCompanies from "../pages/Superadmin/MedicineCompanies";
@@ -40,34 +49,77 @@ import ImportData from "../pages/Superadmin/ImportData";
 import ExportData from "../pages/Superadmin/ExportData";
 import LoginHistory from "../pages/Superadmin/LoginHistory";
 import UserActivities from "../pages/Superadmin/UserActivities";
-import SALogout from "../pages/Superadmin/Logout";
 
 import Home from "../pages/Home";
 import About from "../pages/About";
 import Blog from "../pages/Blog";
 import Contact from "../pages/Contact";
 import Expertise from "../pages/Expertise";
+import TermsOfUse from "../pages/TermsOfUse";
+import PrivacyPolicy from "../pages/PrivacyPolicy";
+import CookiePolicy from "../pages/CookiePolicy";
+import RefundPolicy from "../pages/RefundPolicy";
 
-// import SelectChamber from "../pages/SelectChamber";
-// import TodaysAppointments from "../pages/TodaysAppointments";
-// import BookingConfirmation from "../pages/BookingConfirmation";
+import SelectChamber from "../pages/SelectChamber";
+import TodaysAppointments from "../pages/TodaysAppointments";
+import BookingConfirmation from "../pages/BookingConfirmation";
+import SharedPrescriptionView from "../pages/SharedPrescriptionView";
 
 export const router = createBrowserRouter([
   {
     path: "/",
+    element: <SoftwareLanding />,
+    errorElement: <Error404 />,
+  },
+  {
+    path: "/terms-of-service",
+    element: <SoftwareTerms />,
+    errorElement: <Error404 />,
+  },
+  {
+    path: "/privacy-policy",
+    element: <SoftwarePrivacyPolicy />,
+    errorElement: <Error404 />,
+  },
+  {
+    path: "/cookie-policy",
+    element: <SoftwareCookiePolicy />,
+    errorElement: <Error404 />,
+  },
+  {
+    path: "/refund-policy",
+    element: <SoftwareRefundPolicy />,
+    errorElement: <Error404 />,
+  },
+  {
+    path: "/login",
+    element: <Login />,
+  },
+  {
+    path: "/doctorwebsite",
     element: <Root />,
     errorElement: <Error404 />,
     children: [
-      { path: "/", element: <Home />  },
-      { path: "/about", element: <About /> },
-      { path: "/blog", element: <Blog /> },
-      { path: "/contact", element: <Contact /> },
-      { path: "/expertise", element: <Expertise /> },
-      // { path: "/booking-confirmation", element: <BookingConfirmation /> },
-      // { path: "/select-chamber", element: <SelectChamber /> },
-      // { path: "/todays-appointments", element: <TodaysAppointments /> },
-      { path: "/login", element: <Login />, },
+      { index: true, element: <Home /> },
+      { path: "about", element: <About /> },
+      { path: "blog", element: <Blog /> },
+      { path: "contact", element: <Contact /> },
+      { path: "expertise", element: <Expertise /> },
+      { path: "terms-of-use", element: <TermsOfUse /> },
+      { path: "privacy-policy", element: <PrivacyPolicy /> },
+      { path: "cookie-policy", element: <CookiePolicy /> },
+      { path: "refund-policy", element: <RefundPolicy /> },
+      { path: "booking-confirmation", element: <BookingConfirmation /> },
+      { path: "select-chamber", element: <SelectChamber /> },
+      { path: "todays-appointments", element: <TodaysAppointments /> },
     ],
+  },
+
+  // 1.5 Shared Public Views
+  {
+    path: "/prescription/:id",
+    element: <SharedPrescriptionView />,
+    errorElement: <Error404 />,
   },
 
   // 2. Admin Routes Wrapped in Aroot Layout
@@ -77,70 +129,83 @@ export const router = createBrowserRouter([
     children: [
       {
         path: "/dashboard",
+        // element: <PermissionPrivateRoute><Dashboard /></PermissionPrivateRoute>, 
         element: <PrivateRoot><Dashboard /></PrivateRoot>,
       },
       {
+        path: "/create-prescription",
+        element: <PermissionPrivateRoute><CreatePrescription /></PermissionPrivateRoute>,
+      },
+      {
+        path: "/prescription-template",
+        element: <PermissionPrivateRoute><PrescriptionTemplate /></PermissionPrivateRoute>,
+      },
+      {
         path: "/prescriptions",
-        element: <PrivateRoot><Prescriptions /></PrivateRoot>,
+        element: <PermissionPrivateRoute><Prescriptions /></PermissionPrivateRoute>,
       },
       {
         path: "/appointments",
-        element: <PrivateRoot><Appointments /></PrivateRoot>,
+        element: <PermissionPrivateRoute><Appointments /></PermissionPrivateRoute>,
       },
       {
         path: "/pre-checkup",
-        element: <PrivateRoot><PreCheckup /></PrivateRoot>,
+        element: <PermissionPrivateRoute><PreCheckup /></PermissionPrivateRoute>,
       },
       {
         path: "/doctor-patient",
-        element: <PrivateRoot><DoctorPatient /></PrivateRoot>,
+        element: <PermissionPrivateRoute><DoctorPatient /></PermissionPrivateRoute>,
       },
       {
         path: "/doctor-chamber",
-        element: <PrivateRoot><DoctorChamber /></PrivateRoot>,
+        element: <PermissionPrivateRoute><DoctorChamber /></PermissionPrivateRoute>,
       },
       {
         path: "/users",
-        element: <PrivateRoot><Users /></PrivateRoot>,
+        element: <PermissionPrivateRoute><Users /></PermissionPrivateRoute>,
       },
       {
         path: "/profile",
-        element: <PrivateRoot><Profile /></PrivateRoot>,
+        element: <PermissionPrivateRoute><Profile /></PermissionPrivateRoute>,
       },
       {
         path: "/payment",
-        element: <PrivateRoot><Payment /></PrivateRoot>,
+        element: <PermissionPrivateRoute><Payment /></PermissionPrivateRoute>,
       },
       {
         path: "/send-sms",
-        element: <PrivateRoot><SendSms /></PrivateRoot>,
+        element: <PermissionPrivateRoute><SendSms /></PermissionPrivateRoute>,
       },
       {
         path: "/settings/permissions",
-        element: <PrivateRoot><ManagePermissions /></PrivateRoot>,
+        element: <PermissionPrivateRoute><ManagePermissions /></PermissionPrivateRoute>,
       },
       {
         path: "/settings/email",
-        element: <PrivateRoot><ManageEmail /></PrivateRoot>,
+        element: <PermissionPrivateRoute><ManageEmail /></PermissionPrivateRoute>,
       },
       {
         path: "/settings/sms-config",
-        element: <PrivateRoot><ManageSms /></PrivateRoot>,
+        element: <PermissionPrivateRoute><ManageSms /></PermissionPrivateRoute>,
       },
       {
         path: "/settings/system",
-        element: <PrivateRoot><ManageSystem /></PrivateRoot>,
+        element: <PermissionPrivateRoute><ManageSystem /></PermissionPrivateRoute>,
       },
       {
-        path: "/logout",
-        element: <PrivateRoot><Logout /></PrivateRoot>,
+        path: "/settings/website-profile",
+        element: <PermissionPrivateRoute><WebsiteProfile /></PermissionPrivateRoute>,
+      },
+      {
+        path: "/admin/blog",
+        element: <PermissionPrivateRoute><AdminBlog /></PermissionPrivateRoute>,
       },
     ],
   },
 
   // 3. Super Admin Routes Wrapped in SAroot Layout
   {
-    element: <SAroot />, 
+    element: <SAroot />,
     errorElement: <Error404 />,
     children: [
       // Legacy redirect/home from your previous setup
@@ -152,7 +217,7 @@ export const router = createBrowserRouter([
         path: "/superadmin/home",
         element: <PrivateRoot><SuperAdminHome /></PrivateRoot>,
       },
-      
+
       // New Super Admin Routes
       {
         path: "/super-admin/dashboard",
@@ -201,11 +266,6 @@ export const router = createBrowserRouter([
       {
         path: "/logs/user-activities",
         element: <PrivateRoot><UserActivities /></PrivateRoot>,
-      },
-
-      {
-        path: "/sa-logout", 
-        element: <PrivateRoot><SALogout /></PrivateRoot>,
       },
     ],
   },

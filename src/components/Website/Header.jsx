@@ -2,32 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Stethoscope, Menu, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import useDoctorWebsite from '../../Hook/useDoctorWebsite';
 
 const Header = () => {
-  const location = useLocation(); // Detect current route
+  const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const Branch = "sadat";
+  const { getWebsiteByBranch } = useDoctorWebsite();
+  const [profileData, setProfileData] = useState(null);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await getWebsiteByBranch(Branch);
+        if (data) {
+          setProfileData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching doctor profile for header:", err);
+      }
+    };
+
+    fetchProfile();
+  }, [Branch, getWebsiteByBranch]);
+
+  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Your actual website routes
+  // Updated website routes based on your list
   const navItems = [
     { path: '/', label: 'Home' },
     { path: '/about', label: 'About' },
-    { path: '/select-chamber', label: 'Get Appointment' },
-    { path: '/todays-appointments', label: "Today's Serial" },
+    { path: '/expertise', label: 'Expertise' },
+    { path: '/blog', label: 'Blog' },
     { path: '/contact', label: 'Contact' },
   ];
 
+  // --- Dynamic Data Mapping with Fallbacks ---
+  const headerName = profileData?.info?.shortName || profileData?.info?.fullName || "Dr. Masum";
+  const headerDesignation = profileData?.info?.designation || profileData?.info?.specialization || "Gastroenterologist";
+
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-white py-5'
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? 'bg-white/90 backdrop-blur-md shadow-sm py-3' : 'bg-white py-5'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
@@ -37,12 +61,12 @@ const Header = () => {
             <div className="bg-teal-600 p-1.5 rounded-lg text-white">
               <Stethoscope size={24} />
             </div>
-            <div>
-              <span className="font-bold text-xl tracking-tight text-slate-900 block leading-none">
-                Dr. Masum
+            <div className="flex flex-col justify-center">
+              <span className="font-bold text-xl tracking-tight text-slate-900 block leading-none mb-1">
+                {headerName}
               </span>
-              <span className="text-[10px] uppercase tracking-widest font-bold text-teal-600">
-                Gastroenterologist
+              <span className="text-[10px] uppercase tracking-widest font-bold text-teal-600 leading-none">
+                {headerDesignation}
               </span>
             </div>
           </Link>
@@ -53,9 +77,8 @@ const Header = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`text-sm font-semibold transition-colors hover:text-teal-600 ${
-                  location.pathname === item.path ? 'text-teal-600' : 'text-slate-600'
-                }`}
+                className={`text-sm font-semibold transition-colors hover:text-teal-600 ${location.pathname === item.path ? 'text-teal-600' : 'text-slate-600'
+                  }`}
               >
                 {item.label}
               </Link>
@@ -94,9 +117,8 @@ const Header = () => {
                   key={item.path}
                   to={item.path}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`text-left text-lg font-semibold py-2 ${
-                    location.pathname === item.path ? 'text-teal-600' : 'text-slate-600'
-                  }`}
+                  className={`text-left text-lg font-semibold py-2 ${location.pathname === item.path ? 'text-teal-600' : 'text-slate-600'
+                    }`}
                 >
                   {item.label}
                 </Link>

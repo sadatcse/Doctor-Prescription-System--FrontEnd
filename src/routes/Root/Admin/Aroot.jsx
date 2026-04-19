@@ -1,14 +1,17 @@
 // src/layouts/ARoot.js
 
 import React, { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom"; // 💡 Import useLocation
 import Sidebar from "./Sidebar";
 import Header from "../../../components/Header";
-import useThemeMode from "../../../Hook/useThemeMode"; 
+import useThemeMode from "../../../Hook/useThemeMode";
 
 const ARoot = () => {
+  const { mode } = useThemeMode();
+  const location = useLocation(); // 💡 Get current route
 
-  const { mode } = useThemeMode(); 
+  // 💡 Check if we are on the Create Prescription page
+  const isCreatePrescription = location.pathname === '/create-prescription';
 
   const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
 
@@ -16,23 +19,23 @@ const ARoot = () => {
     setSidebarOpen(!isSidebarOpen);
   };
 
-  // EFFECT: Handle window resizing to show/hide sidebar automatically
+  // EFFECT: Handle window resizing & Route changes
   useEffect(() => {
     const handleResize = () => {
-      // Open on desktop, close on mobile
-      setSidebarOpen(window.innerWidth > 768);
+      // 💡 If on create-prescription, default to closed. Otherwise, base on screen width.
+      if (isCreatePrescription) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(window.innerWidth > 768);
+      }
     };
 
     window.addEventListener("resize", handleResize);
-    // Initial check
-    handleResize();
+    handleResize(); // Initial check
 
-    // Cleanup the event listener on component unmount
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
-  
-  // 💡 Define theme-dependent classes for the main wrapper
-  // We use the dark: prefix to leverage tailwind's class-based dark mode
+  }, [isCreatePrescription]); // 💡 Add dependency so it runs on route change
+
   const mainWrapperClasses = `
     ${mode === 'dark' ? 'dark' : ''}
     flex h-screen transition-colors duration-300
@@ -41,29 +44,35 @@ const ARoot = () => {
 
   const contentMainClasses = `
     flex-1 flex flex-col overflow-hidden transition-all duration-300
-    ${isSidebarOpen ? "md:ml-64" : "md:ml-20"}
+    ${isSidebarOpen 
+       ? "md:ml-64" 
+       : isCreatePrescription 
+          ? "ml-0 md:ml-0" 
+          : "md:ml-20"
+    }
   `;
-  
-  // 💡 Apply the theme classes to the top-level div
+
   return (
     <div className={mainWrapperClasses}>
-      {/* Sidebar is now passed the 'mode' for internal styling */}
-      <Sidebar 
-        isSidebarOpen={isSidebarOpen} 
-        toggleSidebar={toggleSidebar} 
-        mode={mode} // 💡 Pass mode to the Sidebar
+      <Sidebar
+        isSidebarOpen={isSidebarOpen}
+        toggleSidebar={toggleSidebar}
+        mode={mode}
       />
 
       <div className={contentMainClasses}>
- 
-        <Header 
-          isSidebarOpen={isSidebarOpen} 
-          toggleSidebar={toggleSidebar} 
-        />
-        
-        {/* The main content area also needs theme-dependent styling */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 transition-colors duration-300 bg-concrete dark:bg-casual-black">
-          <Outlet />
+        {/* 💡 Hide the global Header ONLY on the create-prescription route */}
+        {!isCreatePrescription && (
+          <Header
+            isSidebarOpen={isSidebarOpen}
+            toggleSidebar={toggleSidebar}
+          />
+        )}
+
+        {/* 💡 Remove padding on create-prescription so it takes the full screen */}
+        <main className={`flex-1 overflow-x-hidden overflow-y-auto transition-colors duration-300 bg-concrete dark:bg-casual-black ${isCreatePrescription ? 'p-0' : 'p-4 md:p-6'}`}>
+          {/* 💡 Pass the toggle function via context so children can use it */}
+          <Outlet context={{ toggleGlobalSidebar: toggleSidebar }} />
         </main>
       </div>
     </div>

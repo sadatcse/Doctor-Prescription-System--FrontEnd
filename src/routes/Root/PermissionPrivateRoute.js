@@ -1,5 +1,5 @@
 // src/layouts/Root/PermissionPrivateRoute.js
-import React, { useContext } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../../providers/AuthProvider';
 import useUserPermissions from '../../Hook/useUserPermissions';
@@ -16,8 +16,24 @@ const PermissionPrivateRoute = ({ children }) => {
     const { allowedRoutes, loading: permissionsLoading } = useUserPermissions();
     const location = useLocation();
 
-    // 1. Show a loader while checking authentication and fetching permissions
-    if (authLoading || permissionsLoading) {
+    // 🚨 FIX 1: Network check to bypass infinite loader offline
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
+    
+    useEffect(() => {
+        const handleOnline = () => setIsOnline(true);
+        const handleOffline = () => setIsOnline(false);
+        
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+        
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, []);
+
+    // 1. Show a loader ONLY if online. If offline, bypass immediately to cached UI.
+    if ((authLoading || permissionsLoading) && isOnline) {
         return <FullPageLoader />;
     }
 
@@ -26,11 +42,14 @@ const PermissionPrivateRoute = ({ children }) => {
         return <Navigate to="/" state={{ from: location }} replace />;
     }
 
+    // 🚨 FIX 2: Protect allowedRoutes from being undefined
+    const safeAllowedRoutes = allowedRoutes || [];
+
     // 3. If the user is logged in but doesn't have permission for this specific route, redirect them
-    // We also explicitly allow the dashboard home page as a default fallback.
-    if (!allowedRoutes.includes(location.pathname) && location.pathname !== '/dashboard/home') {
-        // Redirect to a safe default page, like the dashboard home
-        return <Navigate to="/dashboard/home" replace />;
+    // 🚨 FIX 3: Replaced /dashboard/home with /doctor-patient because /dashboard/home doesn't exist
+    if (!safeAllowedRoutes.includes(location.pathname) && location.pathname !== '/doctor-patient') {
+        // Redirect to a safe default page
+        return <Navigate to="/doctor-patient" replace />;
     }
 
     // 4. If all checks pass, render the requested component

@@ -11,9 +11,11 @@ import {
   MdSecurity,
   MdEmail,
   MdPermDeviceInformation,
-  MdMedication, 
-  MdFactCheck,  
-  MdLogout
+  MdMedication,
+  MdFactCheck,
+  MdLogout,
+  MdLanguage,
+  MdArticle
 } from "react-icons/md";
 
 const useMenuItems = () => {
@@ -25,9 +27,25 @@ const useMenuItems = () => {
       icon: <MdDashboard className="text-lg" />,
     },
     {
-      title: "Manage Prescriptions",
-      path: "/prescriptions",
+      title: "Prescription",
       icon: <MdMedication className="text-lg" />,
+      list: [
+        {
+          title: "Create Prescription",
+          path: "/create-prescription",
+          icon: <MdMedication className="text-lg" />,
+        },
+        {
+          title: "Manage Prescriptions",
+          path: "/prescriptions",
+          icon: <MdMedication className="text-lg" />,
+        },
+        {
+          title: "Prescription Template",
+          path: "/prescription-template",
+          icon: <MdMedication className="text-lg" />,
+        }
+      ]
     },
     {
       title: "Manage Appointment",
@@ -59,7 +77,7 @@ const useMenuItems = () => {
       path: "/profile",
       icon: <MdPerson className="text-lg" />,
     },
-        {
+    {
       title: "Payment Collection",
       path: "/payment",
       icon: <MdPerson className="text-lg" />,
@@ -68,6 +86,11 @@ const useMenuItems = () => {
       title: "Send SMS",
       path: "/send-sms",
       icon: <MdMessage className="text-lg" />,
+    },
+    {
+      title: "Manage Blog",
+      path: "/admin/blog",
+      icon: <MdArticle className="text-lg" />,
     },
 
     {
@@ -90,15 +113,20 @@ const useMenuItems = () => {
           icon: <MdMessage className="text-lg" />,
         },
         {
-          title: "Manage System", 
+          title: "Manage System",
           path: "/settings/system",
           icon: <MdPermDeviceInformation className="text-lg" />,
+        },
+        {
+          title: "Website Profile",
+          path: "/settings/website-profile",
+          icon: <MdLanguage className="text-lg" />,
         },
       ]
     },
     {
       title: "Logout",
-      path: "/logout",
+      action: "logout",
       icon: <MdLogout className="text-lg" />,
     },
   ];

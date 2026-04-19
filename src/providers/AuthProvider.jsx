@@ -3,6 +3,14 @@ import PropTypes from "prop-types";
 
 import useAxiosPublic from "../Hook/useAxiosPublic";
 
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+// Configure dayjs plugins globally
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 export const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
@@ -10,6 +18,13 @@ const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem("authUser");
     return storedUser ? JSON.parse(storedUser) : null;
   });
+
+  // --- ADDED CHAMBER STATE ---
+  const [chamber, setChamber] = useState(() => {
+    const storedChamber = localStorage.getItem("authChamber");
+    return storedChamber ? JSON.parse(storedChamber) : null;
+  });
+
   const [loading, setLoading] = useState(false);
   const axiosSecure = useAxiosPublic();
   const [branch, setBranch] = useState(() => {
@@ -34,6 +49,27 @@ const AuthProvider = ({ children }) => {
       fetchClientIP();
     }
   }, [clientIP]);
+
+  const [systemPreferences, setSystemPreferences] = useState(null);
+
+  const refreshPreferences = async () => {
+    if (branch && axiosSecure) {
+      try {
+        const res = await axiosSecure.get(`/system-preferences/${branch}`);
+        if (res?.data?.data?.timezone) {
+          setSystemPreferences(res.data.data);
+          dayjs.tz.setDefault(res.data.data.timezone);
+        }
+      } catch (err) {
+        console.error("Failed to load global preferences", err);
+      }
+    }
+  };
+
+  useEffect(() => {
+    refreshPreferences();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branch]);
 
   const registerUser = async (email, password, name, branch) => {
     setLoading(true);
@@ -64,11 +100,11 @@ const AuthProvider = ({ children }) => {
       setBranch(data.user.branch);
       localStorage.setItem("authUser", JSON.stringify(data.user));
       localStorage.setItem("authBranch", data.user.branch);
-      localStorage.setItem("authToken", data.token);
-    
+      // Removed localStorage.setItem("authToken") - Now handled natively by secure HttpOnly Cookies
+      
       return data.user;
     } catch (error) {
-    
+
       throw error;
     } finally {
       setLoading(false);
@@ -78,15 +114,19 @@ const AuthProvider = ({ children }) => {
   const logoutUser = async () => {
     setLoading(true);
     try {
-      await axiosSecure.post("/user/logout", { email: user.email, clientIP });
+      if (user?.email) {
+        await axiosSecure.post("/user/logout", { email: user?.email, clientIP });
+      }
+    } catch (error) {
+      console.error("Logout API failed, continuing local clear", error);
+    } finally {
       setUser(null);
-      setBranch(user.branch);
+      setBranch(null);
+      setChamber(null); 
       localStorage.removeItem("authUser");
       localStorage.removeItem("authBranch");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("clientIP");
-    } catch (error) {
-    } finally {
+      // Keep clientIP because it's hardware tied
+      localStorage.removeItem("authChamber"); 
       setLoading(false);
     }
   };
@@ -95,11 +135,15 @@ const AuthProvider = ({ children }) => {
     user,
     loading,
     branch,
+    chamber, // --- EXPOSED CHAMBER ---
     clientIP,
+    systemPreferences,
+    refreshPreferences,
     registerUser,
     loginUser,
     logoutUser,
     setUser,
+    setChamber, // --- EXPOSED SETTER ---
   };
 
   return <AuthContext.Provider value={authInfo}>{children}</AuthContext.Provider>;

@@ -1,30 +1,30 @@
 import React from 'react';
 import {
   MdDashboard,
-  MdInventory,     
-  MdMedication,    
-  MdBusiness,    
-  MdBackup,        
-  MdCloudUpload, 
-  MdCloudDownload, 
-  MdHistory,       
-  MdManageHistory, 
-  MdScience,       
-  MdStore,        
+  MdInventory,
+  MdMedication,
+  MdBusiness,
+  MdBackup,
+  MdCloudUpload,
+  MdCloudDownload,
+  MdHistory,
+  MdManageHistory,
+  MdScience,
+  MdStore,
   MdSupervisedUserCircle,
-  MdAutoFixHigh,  
+  MdAutoFixHigh,
   MdLogout
 } from "react-icons/md";
 
 const useMenuItems = () => {
 
   const allItems = [
- {
+    {
       title: "Dashboard",
       path: "/super-admin/dashboard",
       icon: <MdDashboard className="text-lg" />,
     },
-    
+
     // --- 1. Master Databases ---
     {
       title: "Medicine Database",
@@ -46,7 +46,7 @@ const useMenuItems = () => {
       title: "Labtest Database",
       icon: <MdScience className="text-lg" />,
       list: [
-         {
+        {
           title: "Test List",
           path: "/labtest/list",
           icon: <MdScience className="text-lg" />,
@@ -61,7 +61,7 @@ const useMenuItems = () => {
 
     // --- 2. Organization Management ---
     {
-      title: "Manage Branch",
+      title: "Manage Doctors",
       path: "/admin/branches",
       icon: <MdStore className="text-lg" />,
     },
@@ -114,7 +114,7 @@ const useMenuItems = () => {
 
     {
       title: "Logout",
-      path: "/logout",
+      action: "logout",
       icon: <MdLogout className="text-lg" />,
     },
   ];

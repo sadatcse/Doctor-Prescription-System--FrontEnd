@@ -51,7 +51,8 @@ const MedicineFormModal = ({ isOpen, onClose, medicine, onSuccess, companies = [
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('authToken');
+      console.log(token);
       const isUpdating = !!medicine?._id;
       const url = isUpdating 
         ? `${backendUrl}/medicines/update/${medicine._id}` 

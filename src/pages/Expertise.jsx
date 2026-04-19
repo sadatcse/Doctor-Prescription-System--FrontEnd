@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Microscope, Activity, Stethoscope, CheckCircle2, BookOpen } from 'lucide-react';
+import { Microscope, Activity, Stethoscope, CheckCircle2, BookOpen, Loader2 } from 'lucide-react';
+import useDoctorWebsite from '../Hook/useDoctorWebsite'; // Adjust import path as needed
 
 const Expertise = () => {
-  const categories = [
+  const Branch = "sadat";
+  const { getWebsiteByBranch, loading, error } = useDoctorWebsite();
+  const [profileData, setProfileData] = useState(null);
+
+  // Fetch the data when the component mounts
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await getWebsiteByBranch(Branch);
+        if (data) {
+          setProfileData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching doctor profile for Expertise page:", err);
+      }
+    };
+
+    fetchProfile();
+  }, [Branch, getWebsiteByBranch]);
+
+  // --- Dynamic Data Mapping & Fallbacks ---
+  const doctorName = profileData?.info?.shortName || "Dr. Al Masum";
+  const designation = profileData?.info?.designation || "Senior Consultant";
+
+  // Fallback Categories (Used if DB is empty)
+  const defaultCategories = [
     {
       title: 'Luminal Gastroenterology',
       icon: Microscope,
@@ -36,13 +62,59 @@ const Expertise = () => {
     }
   ];
 
+  // Map dynamic data if it exists, otherwise use defaults
+  let displayCategories = defaultCategories;
+
+  if (profileData?.specializationsExpertise && profileData.specializationsExpertise.length > 0) {
+    const iconList = [Microscope, Activity, Stethoscope];
+
+    displayCategories = profileData.specializationsExpertise.map((spec, index) => {
+      // Split the DB description string by newlines to create sub-items dynamically
+      const descriptionLines = spec.description ? spec.description.split('\n').filter(line => line.trim() !== '') : [];
+
+      const mappedItems = descriptionLines.length > 0
+        ? descriptionLines.map(line => {
+          // If line has a colon (e.g., "GERD: Expert management..."), split it into title/desc
+          const parts = line.split(':');
+          return {
+            name: parts[0].trim(),
+            desc: parts.slice(1).join(':').trim() || ''
+          };
+        })
+        : [{ name: 'Comprehensive Care', desc: spec.description }];
+
+      return {
+        title: spec.specialization,
+        icon: iconList[index % iconList.length], // Cycle through imported icons
+        image: `http://googleusercontent.com/profile/picture/${(index % 3) + 1}`, // Fallback placeholder logic
+        items: mappedItems
+      };
+    });
+  }
+
+  // Loading State
+  if (loading && !profileData) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="h-screen w-full flex items-center justify-center text-teal-600 pt-20"
+      >
+        <Loader2 className="animate-spin w-10 h-10" />
+      </motion.div>
+    );
+  }
+
   return (
-    <motion.div 
-      initial={{ opacity: 0 }} 
-      animate={{ opacity: 1 }} 
-      className="pt-32 pb-20"
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="pt-32 pb-20 bg-slate-50/50 min-h-screen"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Header Area */}
         <div className="mb-16 max-w-3xl">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-50 text-teal-700 text-xs font-bold mb-6">
             SPECIALIZED MEDICAL CARE
@@ -51,13 +123,15 @@ const Expertise = () => {
             Expertise & <span className="text-teal-600">Specialized Procedures</span>
           </h1>
           <p className="text-xl text-slate-600 leading-relaxed">
-            Comprehensive care in Gastroenterology & Hepatology by Senior Consultant Dr. Al Masum, utilizing cutting-edge diagnostic and interventional endoscopy techniques.
+            Comprehensive care in Gastroenterology & Hepatology by {designation} {doctorName}, utilizing cutting-edge diagnostic and interventional endoscopy techniques.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {categories.map((cat, i) => (
-            <motion.section 
+
+          {/* Mapped Categories */}
+          {displayCategories.map((cat, i) => (
+            <motion.section
               key={i}
               initial={{ y: 20, opacity: 0 }}
               whileInView={{ y: 0, opacity: 1 }}
@@ -65,22 +139,23 @@ const Expertise = () => {
               transition={{ delay: i * 0.1 }}
               className="group bg-white rounded-3xl border border-slate-100 overflow-hidden flex flex-col hover:border-teal-200 transition-all duration-300 shadow-sm"
             >
-              <div className="h-64 w-full relative overflow-hidden">
-                <img 
-                  src={cat.image} 
-                  alt={cat.title} 
+              <div className="h-64 w-full relative overflow-hidden bg-slate-200">
+                <img
+                  src={cat.image}
+                  alt={cat.title}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   referrerPolicy="no-referrer"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent flex items-end p-8">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/30 to-transparent flex items-end p-8">
                   <div className="flex items-center gap-4">
                     <div className="bg-teal-600 p-2 rounded-lg text-white">
                       <cat.icon size={24} />
                     </div>
-                    <h3 className="text-2xl font-bold text-white">{cat.title}</h3>
+                    <h3 className="text-2xl font-bold text-white leading-tight">{cat.title}</h3>
                   </div>
                 </div>
               </div>
+
               <div className="p-8 flex-1">
                 <ul className="space-y-6">
                   {cat.items.map((item, j) => (
@@ -88,7 +163,7 @@ const Expertise = () => {
                       <CheckCircle2 className="text-teal-600 shrink-0 mt-1" size={20} />
                       <div>
                         <h4 className="font-bold text-slate-900">{item.name}</h4>
-                        <p className="text-sm text-slate-500 mt-1">{item.desc}</p>
+                        {item.desc && <p className="text-sm text-slate-500 mt-1">{item.desc}</p>}
                       </div>
                     </li>
                   ))}
@@ -97,21 +172,21 @@ const Expertise = () => {
             </motion.section>
           ))}
 
-          {/* Advanced Procedures Card */}
-          <motion.section 
+          {/* Advanced Procedures Highlight Card (Static/Hybrid) */}
+          <motion.section
             initial={{ y: 20, opacity: 0 }}
             whileInView={{ y: 0, opacity: 1 }}
             viewport={{ once: true }}
             className="group bg-teal-600 rounded-3xl overflow-hidden flex flex-col shadow-2xl shadow-teal-600/20"
           >
-            <div className="h-64 w-full relative overflow-hidden">
-              <img 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjSFV4CMtyBDZx550UrC8fqCQTyVZ0X73hDEioH_M07F3SALuG9B30IAnkR-SED2W34nvSl-_DQ9i0JBnimDRXsT2cBPSLVOMJFWcmnNPML05qZXzcqLKvdY3xT3vcgWk5XV7LY9piMTKHoWOpzrgPRsUxC50Vj-cs01F6xkICDZHxOuqlUc-_gtSCo3XPueUBgviLY5V7UAWcXCgW7sunoJAuJalovhNO1yujZcT_ui951i3EBT_Pco2QhKOZWe0Db3qeL5hAQhE" 
-                alt="Advanced Procedures" 
+            <div className="h-64 w-full relative overflow-hidden bg-teal-800">
+              <img
+                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjSFV4CMtyBDZx550UrC8fqCQTyVZ0X73hDEioH_M07F3SALuG9B30IAnkR-SED2W34nvSl-_DQ9i0JBnimDRXsT2cBPSLVOMJFWcmnNPML05qZXzcqLKvdY3xT3vcgWk5XV7LY9piMTKHoWOpzrgPRsUxC50Vj-cs01F6xkICDZHxOuqlUc-_gtSCo3XPueUBgviLY5V7UAWcXCgW7sunoJAuJalovhNO1yujZcT_ui951i3EBT_Pco2QhKOZWe0Db3qeL5hAQhE"
+                alt="Advanced Procedures"
                 className="w-full h-full object-cover opacity-60 mix-blend-overlay group-hover:scale-110 transition-transform duration-700"
                 referrerPolicy="no-referrer"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-teal-900 to-transparent flex items-end p-8">
+              <div className="absolute inset-0 bg-gradient-to-t from-teal-900 via-teal-900/50 to-transparent flex items-end p-8">
                 <div className="flex items-center gap-4">
                   <div className="bg-white p-2 rounded-lg text-teal-600">
                     <Activity size={24} />
@@ -120,8 +195,12 @@ const Expertise = () => {
                 </div>
               </div>
             </div>
+
             <div className="p-8 flex-1 bg-teal-600">
-              <p className="text-teal-50 mb-8 leading-relaxed font-medium">Dr. Al Masum specializes in high-end interventional endoscopic procedures using state-of-the-art technology.</p>
+              <p className="text-teal-50 mb-8 leading-relaxed font-medium">
+                {doctorName} specializes in high-end interventional endoscopic procedures using state-of-the-art technology.
+              </p>
+
               <div className="grid grid-cols-2 gap-4">
                 {[
                   { name: 'ERCP', desc: 'Endoscopic Retrograde Cholangiopancreatography' },
@@ -135,11 +214,13 @@ const Expertise = () => {
                   </div>
                 ))}
               </div>
+
               <button className="w-full mt-8 bg-white text-teal-600 py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 hover:bg-teal-50 transition-all">
                 <BookOpen size={18} /> View Procedure Guide
               </button>
             </div>
           </motion.section>
+
         </div>
       </div>
     </motion.div>

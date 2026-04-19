@@ -5,8 +5,9 @@ import useMenuItems from "./MenuItems";
 
 import Logo from "../../../assets/Logo/data-it-rx-logo.svg"; 
 import Logo_Dark from "../../../assets/Logo/data-it-rx-logo.svg"; 
+import { AuthContext } from '../../../providers/AuthProvider';
 
-const AccordionItem = ({ item, isSidebarOpen, mode }) => {
+const AccordionItem = ({ item, isSidebarOpen, mode, logoutUser }) => {
     const [isOpen, setIsOpen] = useState(false);
     const location = useLocation();
 
@@ -56,6 +57,19 @@ const AccordionItem = ({ item, isSidebarOpen, mode }) => {
     } 
     // --- RECURSIVE LOGIC END ---
 
+    else if (item.action === 'logout') {
+        return (
+            <li>
+                <button
+                    onClick={logoutUser}
+                    className={`w-full ${getLinkClasses('')}`}
+                >
+                    {item.icon}
+                    {isSidebarOpen && <span className="font-medium text-sm">{item.title}</span>}
+                </button>
+            </li>
+        );
+    }
     else {
         return (
             <li>
@@ -74,6 +88,7 @@ const AccordionItem = ({ item, isSidebarOpen, mode }) => {
 const Sidebar = ({ isSidebarOpen, toggleSidebar, mode }) => {
     // Get menu items
     const menuItems = useMenuItems();
+    const { logoutUser } = React.useContext(AuthContext);
     
     const sidebarClasses = `
         fixed top-0 left-0 h-full shadow-lg z-30 transition-all duration-300 flex flex-col
@@ -111,6 +126,7 @@ const Sidebar = ({ isSidebarOpen, toggleSidebar, mode }) => {
                                 item={item} 
                                 isSidebarOpen={isSidebarOpen} 
                                 mode={mode} 
+                                logoutUser={logoutUser}
                             />
                         ))}
                     </ul>

@@ -7,6 +7,7 @@ import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal';
 import Pagination from '../../components/common/Pagination';
 import SectionTitle from '../../components/common/SectionTitle';
 
+
 const MedicineList = () => {
   // Filters & Pagination State
   const [selectedFilter, setSelectedFilter] = useState(''); // Manufacturer Filter
@@ -156,6 +157,7 @@ const MedicineList = () => {
             Add New Medicine
           </button>
         }
+         
       />
 
       {/* Filtering Toolbar */}
