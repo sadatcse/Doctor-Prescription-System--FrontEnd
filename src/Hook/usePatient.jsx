@@ -1,7 +1,7 @@
 // src/Hook/usePatient.js
 import { useState, useCallback } from 'react';
 import UseAxiosSecure from './UseAxioSecure';
-import { db, decryptText, encryptText, sensitivePatientFields } from '../db/db'; 
+import { db, decryptText, encryptText, sensitivePatientFields } from '../db/MasterDB'; 
 
 const generateLocalId = () => {
     return typeof crypto !== 'undefined' && crypto.randomUUID

@@ -3,7 +3,7 @@ import { AuthContext } from "../providers/AuthProvider";
 import UseAxiosSecure from "./UseAxioSecure";
 
 // --- ADDED: Import the offline DB functions ---
-import { getOfflinePermissions, savePermissionsOffline } from "../db/permissionDb";
+import { getOfflinePermissions, savePermissionsOffline } from "../db/MasterDB";
 // ----------------------------------------------
 
 const useUserPermissions = () => {
