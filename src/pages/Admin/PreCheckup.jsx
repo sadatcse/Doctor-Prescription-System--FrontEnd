@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import dayjs from 'dayjs';
-import { HiPlus, HiPencilSquare, HiTrash, HiMagnifyingGlass, HiClipboardDocumentList } from "react-icons/hi2";
+import { 
+  HiPlus, 
+  HiPencilSquare, 
+  HiTrash, 
+  HiMagnifyingGlass, 
+  HiClipboardDocumentList,
+  HiCloudArrowUp
+} from "react-icons/hi2";
 import { AuthContext } from '../../providers/AuthProvider';
 import usePreCheckup from '../../Hook/usePreCheckup';
 import PreCheckupFormModal from '../../components/modal/PreCheckupFormModal';
 import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal';
 import Pagination from '../../components/common/Pagination';
 import SectionTitle from '../../components/common/SectionTitle';
+import { toast } from 'react-toastify';
 
 const PreCheckup = () => {
   const { branch } = useContext(AuthContext);
+
+  // Network Status State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // Filters & Pagination State
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,7 +32,13 @@ const PreCheckup = () => {
   const [paginationData, setPaginationData] = useState({ currentPage: 1, totalPages: 1 });
 
   // Hook Destructuring
-  const { getPreCheckupsByBranch, removePreCheckup, loading, error } = usePreCheckup();
+  const { 
+    getPreCheckupsByBranch, 
+    removePreCheckup, 
+    triggerSync,
+    loading, 
+    error 
+  } = usePreCheckup();
 
   // Modals States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -52,6 +69,27 @@ const PreCheckup = () => {
     }
   }, [page, limit, searchTerm, branch, getPreCheckupsByBranch]);
 
+  // --- Network Listeners ---
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      toast.success("Software Online"); 
+      if (triggerSync) {
+        await triggerSync();
+        fetchPreCheckupData(); // Hot reload data immediately after sync finishes
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [triggerSync, fetchPreCheckupData]);
+
   useEffect(() => {
     fetchPreCheckupData();
   }, [fetchPreCheckupData]);
@@ -71,12 +109,14 @@ const PreCheckup = () => {
     if (!preCheckupToDelete) return;
     setIsDeleting(true);
     try {
-      await removePreCheckup(preCheckupToDelete._id);
+      // Use localId fallback for offline created items that don't have MongoDB _id yet
+      const targetId = preCheckupToDelete.localId || preCheckupToDelete._id;
+      await removePreCheckup(targetId);
       setIsDeleteModalOpen(false);
       setPreCheckupToDelete(null);
       fetchPreCheckupData();
     } catch (err) {
-      alert(`Error deleting: ${err}`);
+      toast.error(`Error deleting: ${err}`);
     } finally {
       setIsDeleting(false);
     }
@@ -89,13 +129,15 @@ const PreCheckup = () => {
         title="Pre-Checkup Management"
         subtitle="Manage patient vitals and preliminary records"
         rightElement={
-          <button
-            onClick={handleAddClick}
-            className="btn bg-sporty-blue hover:bg-sporty-blue/90 text-concrete border-none w-full md:w-auto font-secondary flex items-center gap-2"
-          >
-            <HiPlus className="text-xl" />
-            Add New Pre-Checkup
-          </button>
+          <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+            <button
+              onClick={handleAddClick}
+              className="btn bg-sporty-blue hover:bg-sporty-blue/90 text-concrete border-none font-secondary flex items-center gap-2"
+            >
+              <HiPlus className="text-xl" />
+              Add New
+            </button>
+          </div>
         }
       />
 
@@ -147,25 +189,46 @@ const PreCheckup = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {preCheckups.map((pc) => (
-                    <tr key={pc._id} className="hover:bg-casual-black/5 dark:hover:bg-white/5 transition-colors border-b border-b-casual-black/5 dark:border-b-white/5">
+                  {preCheckups.map((pc) => {
+                    const isPendingSync = pc.syncStatus && pc.syncStatus !== 'synced';
+                    
+                    const displayApptId = pc.appointmentId?.appointmentId 
+                        || (typeof pc.appointmentId === 'string' || typeof pc.appointmentId === 'number' ? pc.appointmentId : null) 
+                        || 'Walk-in/Unknown';
+                    
+                    const rawDate = pc.appointmentId?.appointmentDate || pc.appointmentDate;
+                    const displayApptDate = rawDate ? dayjs(rawDate).format('MMM D, YYYY') : '-';
+
+                    return (
+                    <tr key={pc.localId || pc._id} className="hover:bg-casual-black/5 dark:hover:bg-white/5 transition-colors border-b border-b-casual-black/5 dark:border-b-white/5">
                       <td>
                         <div className="flex items-center gap-3">
-                          <div className="avatar placeholder">
-                            <div className="bg-sporty-blue/10 text-sporty-blue rounded-full w-8">
+                          <div className="avatar placeholder relative">
+                            <div className="bg-sporty-blue/10 text-sporty-blue rounded-full w-8 h-8 flex items-center justify-center">
                               <HiClipboardDocumentList />
                             </div>
+                            {/* Offline Indicator Dot */}
+                            {isPendingSync && (
+                                <div className="absolute -top-1 -right-1 bg-warning text-warning-content rounded-full p-[2px] shadow-sm" title="Pending Sync">
+                                  <HiCloudArrowUp className="w-3 h-3" />
+                                </div>
+                            )}
                           </div>
                           <div>
-                            <span className="font-bold">{pc.patient?.fullName || 'Unknown'}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold">{pc.patient?.fullName || 'Unknown'}</span>
+                                {isPendingSync && (
+                                  <span className="badge badge-warning badge-xs opacity-70">offline</span>
+                                )}
+                            </div>
                             <div className="text-xs opacity-60 font-medium">{pc.patient?.phone || 'No Phone'}</div>
                           </div>
                         </div>
                       </td>
                       <td>
                         <div className="text-sm">
-                          <div className="font-medium text-sporty-blue">ID: {pc.appointmentId?.appointmentId || 'Walk-in/Unknown'}</div>
-                          <div className="opacity-50 text-xs">{pc.appointmentId?.appointmentDate ? dayjs(pc.appointmentId.appointmentDate).format('MMM D, YYYY') : '-'}</div>
+                          <div className="font-medium text-sporty-blue">ID: {displayApptId}</div>
+                          <div className="opacity-50 text-xs">{displayApptDate}</div>
                         </div>
                       </td>
                       <td>
@@ -195,7 +258,7 @@ const PreCheckup = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

@@ -11,8 +11,13 @@ const AppointmentViewModal = ({ isOpen, onClose, appointmentId }) => {
         const fetchDetails = async () => {
             if (isOpen && appointmentId) {
                 try {
-                    const data = await getAppointmentById(appointmentId);
-                    setAppointmentData(data);
+                    const response = await getAppointmentById(appointmentId);
+                    // FIX: Safely unwrap the data from the offline hook response
+                    if (response?.success && response?.data) {
+                        setAppointmentData(response.data);
+                    } else {
+                        setAppointmentData(response);
+                    }
                 } catch (err) {
                     console.error("Failed to load details", err);
                 }
@@ -47,7 +52,8 @@ const AppointmentViewModal = ({ isOpen, onClose, appointmentId }) => {
                                 <div>
                                     <h3 className="font-semibold text-lg mb-3 border-b border-gray-200 dark:border-white/10 pb-2">General Information</h3>
                                     <div className="grid grid-cols-2 gap-y-2 text-sm">
-                                        <p><strong className="text-gray-500 dark:text-gray-400">ID:</strong> {appointmentData.appointmentId}</p>
+                                        {/* --- UPDATED: Stripping "AP" from the Modal View --- */}
+                                        <p><strong className="text-gray-500 dark:text-gray-400">ID:</strong> {appointmentData.appointmentId?.replace(/^AP/i, '')}</p>
                                         <p><strong className="text-gray-500 dark:text-gray-400">Serial:</strong> {appointmentData.serial}</p>
                                         <p><strong className="text-gray-500 dark:text-gray-400">Date:</strong> {appointmentData.appointmentDate ? dayjs(appointmentData.appointmentDate).format('MMM D, YYYY') : 'N/A'}</p>
                                         <p><strong className="text-gray-500 dark:text-gray-400">Time:</strong> {appointmentData.appointmentTime}</p>
@@ -160,7 +166,6 @@ const AppointmentViewModal = ({ isOpen, onClose, appointmentId }) => {
                                                             <p><strong>General:</strong> {appointmentData.preCheckupId.examination.general}</p>
                                                         )}
 
-                                                        {/* 👇 UPDATED SYSTEMIC RENDERING 👇 */}
                                                         {appointmentData.preCheckupId.examination.systemic && (
                                                             <div>
                                                                 <strong>Systemic:</strong>
@@ -182,7 +187,6 @@ const AppointmentViewModal = ({ isOpen, onClose, appointmentId }) => {
                                                                 )}
                                                             </div>
                                                         )}
-                                                        {/* 👆 ---------------------------- 👆 */}
 
                                                     </div>
                                                 </div>

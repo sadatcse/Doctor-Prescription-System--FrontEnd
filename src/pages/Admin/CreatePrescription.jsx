@@ -9,6 +9,8 @@ import Swal from 'sweetalert2';
 import usePrescription from '../../Hook/usePrescription';
 import useChamber from '../../Hook/useChamber';
 import useDoctorProfile from '../../Hook/useDoctorProfile';
+import useMedicine from '../../Hook/useMedicine';
+import useLabtest from '../../Hook/useLabtest';
 import { AuthContext } from '../../providers/AuthProvider';
 
 import { generatePrescriptionPdf } from '../../components/utils/generatePrescriptionPdf';
@@ -35,6 +37,8 @@ export default function CreatePrescription() {
   const { createPrescription, updatePrescription, getPrescriptionsByBranch, loading: isSaving } = usePrescription();
   const { getChambersByBranch } = useChamber();
   const { getProfilesByBranch } = useDoctorProfile();
+  const { populateOfflineDatabase } = useMedicine();
+  const { populateOfflineLabtests } = useLabtest();
 
   const [chambers, setChambers] = useState([]);
   const [selectedChamber, setSelectedChamber] = useState(null);
@@ -60,6 +64,36 @@ export default function CreatePrescription() {
     followUp: '',
     patientType: 'New Patient'
   });
+
+
+
+//   // <-- ADD THIS BLOCK -->
+// useEffect(() => {
+//   if (navigator.onLine) {
+//     populateOfflineDatabase();
+//     populateOfflineLabtests();
+//   }
+// }, [populateOfflineDatabase, populateOfflineLabtests]);
+
+
+
+useEffect(() => {
+  // Set a timer for 60,000 milliseconds (1 minute)
+  const syncTimer = setTimeout(() => {
+    if (navigator.onLine) {
+      console.log("1 minute passed: Starting background database sync...");
+      populateOfflineDatabase();
+      populateOfflineLabtests(); 
+    }
+  }, 60000); 
+
+  // Cleanup function: If they leave the page early, cancel the timer!
+  return () => clearTimeout(syncTimer);
+}, [populateOfflineDatabase, populateOfflineLabtests]);
+
+
+
+
 
   useEffect(() => {
     const phone = prescriptionData.patient?.phone;

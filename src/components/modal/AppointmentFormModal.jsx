@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { HiXMark, HiMagnifyingGlass, HiExclamationTriangle, HiInformationCircle, HiCalendarDays } from 'react-icons/hi2';
+import { HiXMark, HiMagnifyingGlass, HiExclamationTriangle, HiInformationCircle, HiCalendarDays, HiPencilSquare } from 'react-icons/hi2';
 import useAppointment from '../../Hook/useAppointment';
 import useChamber from '../../Hook/useChamber';
-import usePatient from '../../Hook/usePatient';
+import usePatient from '../../Hook/usePatient'; // Required for updating patient data
 import { AuthContext } from '../../providers/AuthProvider';
 import dayjs from 'dayjs';
+import { toast } from 'react-toastify';
 
 // Helper function to add minutes to a HH:mm time string
 const addMinutesToTime = (timeStr, minsToAdd) => {
@@ -18,7 +19,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
 
     const { createAppointment, updateAppointment, getAppointmentsByBranch, loading } = useAppointment();
     const { getChambersByBranch } = useChamber();
-    const { getPatientsByBranch } = usePatient();
+    const { getPatientsByBranch, updatePatient } = usePatient(); // Extracted updatePatient
 
     const [chambers, setChambers] = useState([]);
 
@@ -27,6 +28,9 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
     const [bookedCount, setBookedCount] = useState(0);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [isHoliday, setIsHoliday] = useState(false);
+
+    // --- NEW: Toggle to allow editing existing patient data ---
+    const [isEditingPatient, setIsEditingPatient] = useState(false);
 
     // Helper to get today's date in YYYY-MM-DD format
     const getTodayDate = () => dayjs().format('YYYY-MM-DD');
@@ -66,10 +70,14 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
     useEffect(() => {
         if (isOpen && currentBranch) {
             fetchChambers();
+            setIsEditingPatient(false); // Reset toggle when modal opens
         }
         if (appointment) {
+            const extractedPatientId = typeof appointment.patientId === 'object' ? appointment.patientId?._id : (appointment.patientId || null);
+            const extractedChamberId = typeof appointment.chamberId === 'object' ? appointment.chamberId?._id : (appointment.chamberId || '');
+
             setFormData({
-                patientId: appointment.patientId?._id || null,
+                patientId: extractedPatientId,
                 phone: appointment.patientId?.phone || '',
                 fullName: appointment.patientId?.fullName || '',
                 email: appointment.patientId?.email || '',
@@ -78,7 +86,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                 gender: appointment.patientId?.gender || 'Male',
                 bloodGroup: appointment.patientId?.bloodGroup || '',
                 address: appointment.patientId?.address || '',
-                chamberId: appointment.chamberId?._id || appointment.chamberId || '',
+                chamberId: extractedChamberId,
                 appointmentDate: appointment.appointmentDate ? dayjs(appointment.appointmentDate).format('YYYY-MM-DD') : getTodayDate(),
                 appointmentTime: appointment.appointmentTime || '',
                 patientType: appointment.patientType || 'New Patient',
@@ -184,6 +192,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
         setSearchQuery('');
         setSearchResults([]);
         setShowDropdown(false);
+        setIsEditingPatient(false);
     };
 
     const handleChange = (e) => {
@@ -192,6 +201,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
 
         if ((name === 'phone' || name === 'fullName') && formData.patientId) {
             setFormData(prev => ({ ...prev, patientId: null, patientType: 'New Patient' }));
+            setIsEditingPatient(false);
         }
 
         // Automatic Dynamic Search when 10th digit of phone is inputted
@@ -240,8 +250,8 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
 
         setFormData(prev => ({ ...prev, dateOfBirth: formatted }));
 
-        // Unlink patient if manually editing
-        if (formData.patientId) {
+        // Unlink patient if manually editing (only if not explicitly in edit mode)
+        if (formData.patientId && !isEditingPatient) {
             setFormData(prev => ({ ...prev, patientId: null, patientType: 'New Patient' }));
         }
     };
@@ -285,6 +295,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
         }));
         setSearchQuery('');
         setShowDropdown(false);
+        setIsEditingPatient(false); // Lock fields upon selection
     };
 
     const handleSubmit = async (e) => {
@@ -298,43 +309,50 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
             branch: currentBranch
         };
 
+        const patientDetailsPayload = {
+            fullName: formData.fullName,
+            email: formData.email,
+            phone: formData.phone,
+            dateOfBirth: formData.dateOfBirth || undefined,
+            age: formData.age || undefined,
+            gender: formData.gender,
+            bloodGroup: formData.bloodGroup || undefined,
+            address: formData.address,
+        };
+
         try {
+            // --- NEW: Execute Patient Update if Edit Mode was active ---
+            if (formData.patientId && isEditingPatient && updatePatient) {
+                try {
+                    await updatePatient(formData.patientId, patientDetailsPayload);
+                    if (!navigator.onLine) toast.info("Patient details updated offline.");
+                } catch (err) {
+                    console.error("Failed to update patient record:", err);
+                    toast.error("Failed to update master patient profile, but continuing with appointment.");
+                }
+            }
+
             if (appointment) {
                 // UPDATE SINGLE APPOINTMENT
                 const payload = { ...basePayload };
                 if (formData.patientId) {
                     payload.patientId = formData.patientId;
                 } else {
-                    payload.patientDetails = {
-                        fullName: formData.fullName,
-                        email: formData.email,
-                        phone: formData.phone,
-                        dateOfBirth: formData.dateOfBirth || undefined,
-                        age: formData.age || undefined,
-                        gender: formData.gender,
-                        bloodGroup: formData.bloodGroup || undefined,
-                        address: formData.address,
-                    };
+                    payload.patientDetails = patientDetailsPayload;
                 }
-                await updateAppointment(appointment._id, payload);
+                const targetId = appointment.localId || appointment._id; 
+                await updateAppointment(targetId, payload);
+                if (!navigator.onLine) toast.info("Edit saved offline. Will sync when connected.");
             } else {
                 // CREATE APPOINTMENT
                 const payload = { ...basePayload };
                 if (formData.patientId) {
                     payload.patientId = formData.patientId;
                 } else {
-                    payload.patientDetails = {
-                        fullName: formData.fullName,
-                        email: formData.email,
-                        phone: formData.phone,
-                        dateOfBirth: formData.dateOfBirth || undefined,
-                        age: formData.age || undefined,
-                        gender: formData.gender,
-                        bloodGroup: formData.bloodGroup || undefined,
-                        address: formData.address,
-                    };
+                    payload.patientDetails = patientDetailsPayload;
                 }
                 await createAppointment(payload);
+                if (!navigator.onLine) toast.info("Saved offline. Will sync when connected.");
             }
             onSuccess();
             onClose();
@@ -346,14 +364,13 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
 
     if (!isOpen) return null;
 
-    // Derived Capacity Variables
     const maxAllowed = selectedChamberDetails?.maxDailyPatient || 0;
     const isUnlimited = maxAllowed === 0;
     const availableSlots = isUnlimited ? Infinity : Math.max(0, maxAllowed - bookedCount);
     const isFull = !isUnlimited && availableSlots < 1;
-
-    // Prevent Save conditions
     const isSubmitDisabled = loading || isFull || isHoliday || checkingAvailability;
+
+    const isPatientLinkedAndLocked = !!formData.patientId && !isEditingPatient;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-casual-black/50 backdrop-blur-sm p-4">
@@ -436,10 +453,26 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
 
                         {/* PATIENT INFO SECTION */}
                         <section>
-                            <h3 className="text-lg font-bold font-secondary text-[#008080] border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
-                                Patient Information
-                                {formData.patientId && <span className="ml-3 badge badge-sm bg-blue-100 text-blue-800 border-none">Existing Patient Linked</span>}
-                            </h3>
+                            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2 mb-4">
+                                <h3 className="text-lg font-bold font-secondary text-[#008080] flex items-center">
+                                    Patient Information
+                                    {formData.patientId && (
+                                        <span className={`ml-3 badge badge-sm border-none ${isEditingPatient ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                            {isEditingPatient ? 'Editing Master Record' : 'Existing Patient Linked'}
+                                        </span>
+                                    )}
+                                </h3>
+                                {/* --- NEW: Edit Toggle Button --- */}
+                                {formData.patientId && !isEditingPatient && (
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setIsEditingPatient(true)}
+                                        className="text-xs flex items-center gap-1 text-gray-500 hover:text-[#008080] transition-colors"
+                                    >
+                                        <HiPencilSquare className="w-4 h-4" /> Edit Details
+                                    </button>
+                                )}
+                            </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                                 <div className="form-control">
@@ -452,7 +485,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                                 </div>
                                 <div className="form-control">
                                     <label className="label"><span className="label-text font-medium">Email</span></label>
-                                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="patient@example.com" className="input input-bordered w-full bg-transparent" />
+                                    <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="patient@example.com" disabled={isPatientLinkedAndLocked} className="input input-bordered w-full bg-transparent disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800" />
                                 </div>
 
                                 <div className="form-control">
@@ -463,23 +496,24 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                                             name="dateOfBirth"
                                             value={formData.dateOfBirth}
                                             onChange={handleDobChange}
+                                            disabled={isPatientLinkedAndLocked}
                                             placeholder="DD/MM/YYYY"
-                                            className="input input-bordered w-full bg-transparent pr-10"
+                                            className="input input-bordered w-full bg-transparent pr-10 disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800"
                                             maxLength="10"
                                         />
-                                        {/* Invisible date input strictly for opening the native picker dropdown */}
                                         <input
                                             type="date"
+                                            disabled={isPatientLinkedAndLocked}
                                             onChange={(e) => {
                                                 if (e.target.value) {
                                                     const [y, m, d] = e.target.value.split('-');
                                                     setFormData(prev => ({ ...prev, dateOfBirth: `${d}/${m}/${y}` }));
-                                                    if (formData.patientId) {
+                                                    if (formData.patientId && !isEditingPatient) {
                                                         setFormData(prev => ({ ...prev, patientId: null, patientType: 'New Patient' }));
                                                     }
                                                 }
                                             }}
-                                            className="absolute right-0 top-0 w-10 h-full opacity-0 cursor-pointer z-10"
+                                            className="absolute right-0 top-0 w-10 h-full opacity-0 cursor-pointer z-10 disabled:cursor-not-allowed"
                                             title="Select Date"
                                         />
                                         <HiCalendarDays className="absolute right-3 text-gray-500 z-0 pointer-events-none" size={20} />
@@ -487,11 +521,11 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                                 </div>
                                 <div className="form-control">
                                     <label className="label"><span className="label-text font-medium">Age</span></label>
-                                    <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="Years" className="input input-bordered w-full bg-transparent" min="0" />
+                                    <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="Years" disabled={isPatientLinkedAndLocked} className="input input-bordered w-full bg-transparent disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800" min="0" />
                                 </div>
                                 <div className="form-control">
                                     <label className="label"><span className="label-text font-medium">Gender*</span></label>
-                                    <select name="gender" value={formData.gender} onChange={handleChange} required className="select select-bordered w-full bg-transparent">
+                                    <select name="gender" value={formData.gender} onChange={handleChange} required disabled={isPatientLinkedAndLocked} className="select select-bordered w-full bg-transparent disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800">
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
                                         <option value="Other">Other</option>
@@ -499,7 +533,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                                 </div>
                                 <div className="form-control">
                                     <label className="label"><span className="label-text font-medium">Blood Group</span></label>
-                                    <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} className="select select-bordered w-full bg-transparent">
+                                    <select name="bloodGroup" value={formData.bloodGroup} onChange={handleChange} disabled={isPatientLinkedAndLocked} className="select select-bordered w-full bg-transparent disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800">
                                         <option value="">Select</option>
                                         {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
                                             <option key={bg} value={bg}>{bg}</option>
@@ -508,7 +542,7 @@ const AppointmentFormModal = ({ isOpen, onClose, appointment, onSuccess, current
                                 </div>
                                 <div className="form-control md:col-span-2">
                                     <label className="label"><span className="label-text font-medium">Address</span></label>
-                                    <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="e.g., Mirpur DOHS, Dhaka, Bangladesh" className="input input-bordered w-full bg-transparent" />
+                                    <input type="text" name="address" value={formData.address} onChange={handleChange} placeholder="e.g., Mirpur DOHS, Dhaka, Bangladesh" disabled={isPatientLinkedAndLocked} className="input input-bordered w-full bg-transparent disabled:opacity-60 disabled:bg-gray-100 dark:disabled:bg-gray-800" />
                                 </div>
                             </div>
                         </section>

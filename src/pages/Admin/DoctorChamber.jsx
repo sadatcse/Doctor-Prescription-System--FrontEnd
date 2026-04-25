@@ -54,34 +54,7 @@ const DoctorChamber = () => {
   const [chamberToDelete, setChamberToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // --- Network Listeners ---
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOnline(true);
-      if (triggerSync) triggerSync();
-      toast.success("Software Online"); 
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [triggerSync]);
-
-  // --- Trigger Background Sync when Component Mounts ---
-  useEffect(() => {
-    if (branch && isOnline) {
-      populateOfflineDatabase(branch).then(() => {
-        fetchChambersData();
-      });
-    }
-  }, [branch, isOnline, populateOfflineDatabase]); 
-
-  // Fetch Chambers
+  // Fetch Chambers (Moved up so it can be used in network listener)
   const fetchChambersData = useCallback(async () => {
     if (!branch) return;
     try {
@@ -102,6 +75,37 @@ const DoctorChamber = () => {
       console.error("Failed to fetch chambers:", err);
     }
   }, [page, limit, searchTerm, branch, getChambersByBranch]);
+
+  // --- Network Listeners ---
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      if (triggerSync) {
+        await triggerSync();
+        // Force refresh data after sync completes
+        fetchChambersData(); 
+      }
+      toast.success("Software Online"); 
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [triggerSync, fetchChambersData]); // Added fetchChambersData to dependencies
+
+  // --- Trigger Background Sync when Component Mounts ---
+  useEffect(() => {
+    if (branch && isOnline) {
+      populateOfflineDatabase(branch).then(() => {
+        fetchChambersData();
+      });
+    }
+  }, [branch, isOnline, populateOfflineDatabase, fetchChambersData]); 
 
   useEffect(() => {
     fetchChambersData();

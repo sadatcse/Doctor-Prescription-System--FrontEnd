@@ -21,20 +21,6 @@ db.version(2).stores({
     dashboardCache: 'branch' 
 });
 
-
-// Old Volt 
-// Version 3: Added new centralized tables for dashboards and permissions
-// db.version(3).stores({
-//     patients: 'localId, _id, branch, syncStatus',
-//     syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
-//     dashboardCache: 'branch', 
-//     dashboards: 'branch',       // Merged from ClinicDashboardDB
-//     rolePermissions: 'role'     // Merged from ClinicPermissionsDB
-// });
-
-
-
-
 // Version 3: Added centralized tables and the unencrypted chambers table
 db.version(3).stores({
     patients: 'localId, _id, branch, syncStatus',
@@ -42,8 +28,102 @@ db.version(3).stores({
     dashboardCache: 'branch', 
     dashboards: 'branch',       
     rolePermissions: 'role',
-    chambers: 'localId, _id, branch, syncStatus' // <-- ADDED THIS LINE
+    chambers: 'localId, _id, branch, syncStatus', // <-- ADDED THIS LINE
+    preCheckups: 'localId, _id, branch, syncStatus', // <-- ADDED THIS LINE
+    
 });
+
+
+
+
+
+// Version 4: Added appointments and appointment stats
+db.version(4).stores({
+    patients: 'localId, _id, branch, syncStatus',
+    syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
+    dashboardCache: 'branch', 
+    dashboards: 'branch',       
+    rolePermissions: 'role',
+    chambers: 'localId, _id, branch, syncStatus', 
+    preCheckups: 'localId, _id, branch, syncStatus',
+    // --- NEW TABLES ---
+    appointments: 'localId, _id, branch, syncStatus',
+    appointmentStats: 'branch'
+});
+
+
+
+// ==========================================
+// 🚀 VERSION 5: DOCTORS & PRESCRIPTIONS
+// ==========================================
+db.version(5).stores({
+    patients: 'localId, _id, branch, syncStatus',
+    syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
+    dashboardCache: 'branch', 
+    dashboards: 'branch',       
+    rolePermissions: 'role',
+    chambers: 'localId, _id, branch, syncStatus', 
+    preCheckups: 'localId, _id, branch, syncStatus',
+    appointments: 'localId, _id, branch, syncStatus',
+    appointmentStats: 'branch',
+    // --- NEW TABLES ADDED ---
+    doctorProfiles: 'localId, _id, branch, syncStatus',
+   
+});
+
+
+db.version(6).stores({
+    patients: 'localId, _id, branch, syncStatus',
+    syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
+    dashboardCache: 'branch', 
+    dashboards: 'branch',       
+    rolePermissions: 'role',
+    chambers: 'localId, _id, branch, syncStatus', 
+    preCheckups: 'localId, _id, branch, syncStatus',
+    appointments: 'localId, _id, branch, syncStatus',
+    appointmentStats: 'branch',
+    // --- NEW TABLES ADDED ---
+    doctorProfiles: 'localId, _id, branch, syncStatus',
+    prescriptions: 'localId, _id, prescriptionId, branch, patientId, doctorId, syncStatus'
+});
+
+
+
+// MUST be bumped to version 6 because you added new tables!
+db.version(7).stores({
+    patients: 'localId, _id, branch, syncStatus',
+    syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
+    dashboardCache: 'branch', 
+    dashboards: 'branch',       
+    rolePermissions: 'role',
+    chambers: 'localId, _id, branch, syncStatus', 
+    preCheckups: 'localId, _id, branch, syncStatus',
+    appointments: 'localId, _id, branch, syncStatus',
+    appointmentStats: 'branch',
+    // --- NEW TABLES ADDED ---
+    doctorProfiles: 'localId, _id, branch, syncStatus',
+    prescriptions: 'localId, _id, prescriptionId, branch, patientId, doctorId, syncStatus',
+    medicines: '_id, brandName, genericName, syncStatus' // <-- Don't forget your new medicine table!
+});
+// MUST be bumped to version 6 because you added new tables!
+db.version(8).stores({
+    patients: 'localId, _id, branch, syncStatus',
+    syncQueue: '++id, action, collection, targetId, timestamp, retryCount',
+    dashboardCache: 'branch', 
+    dashboards: 'branch',       
+    rolePermissions: 'role',
+    chambers: 'localId, _id, branch, syncStatus', 
+    preCheckups: 'localId, _id, branch, syncStatus',
+    appointments: 'localId, _id, branch, syncStatus',
+    appointmentStats: 'branch',
+    // --- NEW TABLES ADDED ---
+    doctorProfiles: 'localId, _id, branch, syncStatus',
+    prescriptions: 'localId, _id, prescriptionId, branch, patientId, doctorId, syncStatus',
+    medicines: '_id, brandName, genericName, syncStatus', // <-- Don't forget your new medicine table!
+    labtests: '_id, testName, status, syncStatus' // <-- ADD THIS
+});
+
+
 // ==========================================
 // 🔐 CORE ENCRYPTION HELPERS
 // ==========================================
@@ -114,12 +194,16 @@ db.patients.hook('updating', function (mods, primKey, obj, trans) {
 
 db.patients.hook('reading', function (obj) {
     if (!obj) return obj;
+    
+    // DEEP CLONE: Prevent mutating Dexie's internal cache
+    const clonedObj = JSON.parse(JSON.stringify(obj));
+    
     sensitivePatientFields.forEach(field => {
-        if (obj[field] !== undefined && obj[field] !== null) {
-            obj[field] = decryptText(obj[field]);
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            clonedObj[field] = decryptText(clonedObj[field]);
         }
     });
-    return obj;
+    return clonedObj;
 });
 
 db.syncQueue.hook('creating', function (primKey, obj, trans) {
@@ -218,3 +302,263 @@ export const getOfflinePermissions = async (role) => {
         return null;
     }
 };
+
+
+
+// ==========================================
+// 🩺 PRE-CHECKUPS HOOKS
+// ==========================================
+
+// Define fields in the PreCheckup object that need encryption.
+// Modify this array based on your actual PreCheckup Mongoose schema.
+export const sensitivePreCheckupFields = ['symptoms', 'vitals', 'medicalHistory', 'chiefComplaint'];
+
+db.preCheckups.hook('creating', function (primKey, obj, trans) {
+    sensitivePreCheckupFields.forEach(field => {
+        if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") {
+            // Use encryptData for objects/arrays, encryptText for standard strings
+            obj[field] = typeof obj[field] === 'object' ? encryptData(obj[field]) : encryptText(obj[field]);
+        }
+    });
+});
+
+db.preCheckups.hook('updating', function (mods, primKey, obj, trans) {
+    sensitivePreCheckupFields.forEach(field => {
+        if (mods.hasOwnProperty(field) && mods[field] !== undefined && mods[field] !== null && mods[field] !== "") {
+            mods[field] = typeof mods[field] === 'object' ? encryptData(mods[field]) : encryptText(mods[field]);
+        }
+    });
+});
+
+db.preCheckups.hook('reading', function (obj) {
+    if (!obj) return obj;
+    
+    // DEEP CLONE: Prevent mutating Dexie's internal cache
+    const clonedObj = JSON.parse(JSON.stringify(obj));
+    
+    sensitivePreCheckupFields.forEach(field => {
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            const decryptedValue = decryptText(clonedObj[field]);
+            
+            // Attempt to parse back into an object/array if it was encrypted via encryptData
+            try {
+                // Only attempt JSON.parse if it looks like a JSON string
+                if (typeof decryptedValue === 'string' && (decryptedValue.startsWith('{') || decryptedValue.startsWith('['))) {
+                    clonedObj[field] = JSON.parse(decryptedValue);
+                } else {
+                    clonedObj[field] = decryptedValue;
+                }
+            } catch (e) {
+                // Fallback if parsing fails (it's just a regular string)
+                clonedObj[field] = decryptedValue;
+            }
+        }
+    });
+    return clonedObj;
+});
+
+// ==========================================
+// 📅 APPOINTMENTS HOOKS (PRECISION NESTED ENCRYPTION)
+// ==========================================
+
+export const sensitiveAppointmentFields = ['notes', 'reasonForVisit', 'disease'];
+export const sensitiveNestedPatientFields = ['fullName', 'phone', 'email', 'bloodGroup', 'address', 'age', 'gender', 'dateOfBirth'];
+
+db.appointments.hook('creating', function (primKey, obj, trans) {
+    // 1. Encrypt Root Fields
+    sensitiveAppointmentFields.forEach(field => {
+        if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") {
+            obj[field] = encryptText(obj[field]);
+        }
+    });
+
+    // 2. Encrypt Nested Patient Fields (LEAVING _id ALONE)
+    if (obj.patientId && typeof obj.patientId === 'object') {
+        sensitiveNestedPatientFields.forEach(field => {
+            if (obj.patientId[field] !== undefined && obj.patientId[field] !== null && obj.patientId[field] !== "") {
+                obj.patientId[field] = encryptText(obj.patientId[field].toString());
+            }
+        });
+    }
+});
+
+db.appointments.hook('updating', function (mods, primKey, obj, trans) {
+    // 1. Update Root Fields
+    sensitiveAppointmentFields.forEach(field => {
+        if (mods.hasOwnProperty(field) && mods[field] !== undefined && mods[field] !== null && mods[field] !== "") {
+            mods[field] = encryptText(mods[field]);
+        }
+    });
+
+    // 2. Update Nested Patient Fields
+    if (mods.patientId && typeof mods.patientId === 'object') {
+        sensitiveNestedPatientFields.forEach(field => {
+            if (mods.patientId[field] !== undefined && mods.patientId[field] !== null && mods.patientId[field] !== "") {
+                mods.patientId[field] = encryptText(mods.patientId[field].toString());
+            }
+        });
+    }
+});
+
+db.appointments.hook('reading', function (obj) {
+    if (!obj) return obj;
+    
+    const clonedObj = JSON.parse(JSON.stringify(obj));
+    
+    // 1. Decrypt Root Fields
+    sensitiveAppointmentFields.forEach(field => {
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            clonedObj[field] = decryptText(clonedObj[field]);
+        }
+    });
+
+    // 2. Decrypt Nested Patient Fields
+    if (clonedObj.patientId && typeof clonedObj.patientId === 'object') {
+        sensitiveNestedPatientFields.forEach(field => {
+            if (clonedObj.patientId[field] !== undefined && clonedObj.patientId[field] !== null) {
+                clonedObj.patientId[field] = decryptText(clonedObj.patientId[field]);
+            }
+        });
+    }
+    
+    return clonedObj;
+});
+
+
+
+
+
+
+// / ==========================================
+// 👨‍⚕️ DOCTOR PROFILE HOOKS
+// ==========================================
+// We only encrypt private info. Name, Degrees, and BMDC stay plain text for fast offline queries.
+export const sensitiveDoctorProfileFields = ['phone', 'email'];
+
+db.doctorProfiles.hook('creating', function (primKey, obj, trans) {
+    sensitiveDoctorProfileFields.forEach(field => {
+        if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") {
+            obj[field] = encryptText(obj[field]);
+        }
+    });
+});
+
+db.doctorProfiles.hook('updating', function (mods, primKey, obj, trans) {
+    sensitiveDoctorProfileFields.forEach(field => {
+        if (mods.hasOwnProperty(field) && mods[field] !== undefined && mods[field] !== null && mods[field] !== "") {
+            mods[field] = encryptText(mods[field]);
+        }
+    });
+});
+
+db.doctorProfiles.hook('reading', function (obj) {
+    if (!obj) return obj;
+    const clonedObj = JSON.parse(JSON.stringify(obj));
+    sensitiveDoctorProfileFields.forEach(field => {
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            clonedObj[field] = decryptText(clonedObj[field]);
+        }
+    });
+    return clonedObj;
+});
+
+// ==========================================
+// 💊 PRESCRIPTION HOOKS
+// ==========================================
+
+
+// ==========================================
+// 💊 PRESCRIPTION HOOKS (Implicit Encryption)
+// ==========================================
+export const sensitivePrescriptionFields = ['complaintsText', 'historyText', 'examinationText', 'diagnosisText', 'adviceText'];
+export const sensitivePrescriptionObjects = [
+    'patient', 'vitals', 'complaints', 'history', 
+    'examination', 'diagnosis', 'investigations', 'medicines', 'advice'
+];
+
+db.prescriptions.hook('creating', function (primKey, obj, trans) {
+    sensitivePrescriptionFields.forEach(field => {
+        if (obj[field] !== undefined && obj[field] !== null && obj[field] !== "") {
+            obj[field] = encryptText(obj[field]);
+        }
+    });
+    sensitivePrescriptionObjects.forEach(field => {
+        if (obj[field] !== undefined && obj[field] !== null) {
+            obj[field] = typeof obj[field] === 'object' ? encryptData(obj[field]) : encryptText(obj[field]);
+        }
+    });
+});
+
+db.prescriptions.hook('updating', function (mods, primKey, obj, trans) {
+    sensitivePrescriptionFields.forEach(field => {
+        if (mods.hasOwnProperty(field) && mods[field] !== undefined && mods[field] !== null && mods[field] !== "") {
+            mods[field] = encryptText(mods[field]);
+        }
+    });
+    sensitivePrescriptionObjects.forEach(field => {
+        if (mods.hasOwnProperty(field) && mods[field] !== undefined && mods[field] !== null) {
+            mods[field] = typeof mods[field] === 'object' ? encryptData(mods[field]) : encryptText(mods[field]);
+        }
+    });
+});
+
+db.prescriptions.hook('reading', function (obj) {
+    if (!obj) return obj;
+    
+    // Deep clone to prevent mutating Dexie's cache
+    const clonedObj = JSON.parse(JSON.stringify(obj));
+    
+    sensitivePrescriptionFields.forEach(field => {
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            clonedObj[field] = decryptText(clonedObj[field]);
+        }
+    });
+
+    sensitivePrescriptionObjects.forEach(field => {
+        if (clonedObj[field] !== undefined && clonedObj[field] !== null) {
+            const decryptedValue = decryptText(clonedObj[field]);
+            try {
+                if (typeof decryptedValue === 'string' && (decryptedValue.startsWith('{') || decryptedValue.startsWith('['))) {
+                    clonedObj[field] = JSON.parse(decryptedValue);
+                } else {
+                    clonedObj[field] = decryptedValue;
+                }
+            } catch (e) {
+                clonedObj[field] = decryptedValue;
+            }
+        }
+    });
+    return clonedObj;
+});
+// ==========================================
+// 💊 MEDICINES HOOKS (For Offline Syncing)
+// ==========================================
+
+// We don't encrypt medicines because they are public data,
+// but we DO need hooks to manage the syncQueue if a user creates one offline.
+
+db.medicines.hook('creating', function (primKey, obj, trans) {
+    // If it's created offline, ensure it has a syncStatus
+    if (!obj.syncStatus) {
+        obj.syncStatus = navigator.onLine ? 'synced' : 'pending_create';
+    }
+});
+
+db.medicines.hook('updating', function (mods, primKey, obj, trans) {
+    // If updated offline, mark it for sync
+    if (mods.hasOwnProperty('syncStatus') === false && !navigator.onLine) {
+        mods.syncStatus = 'pending_update';
+    }
+});
+
+
+
+
+
+// Add hooks for custom offline lab tests
+db.labtests.hook('creating', function (primKey, obj, trans) {
+    if (!obj.syncStatus) obj.syncStatus = navigator.onLine ? 'synced' : 'pending_create';
+});
+
+
+
