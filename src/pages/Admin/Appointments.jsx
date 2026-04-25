@@ -7,7 +7,7 @@ import {
     HiCalendarDays,
     HiDocumentText
 } from "react-icons/hi2";
-import { useNavigate } from 'react-router-dom'; // 👈 ADD THIS IMPORT
+import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import useAppointment from '../../Hook/useAppointment';
 import useChamber from '../../Hook/useChamber';
@@ -19,6 +19,7 @@ import SectionTitle from '../../components/common/SectionTitle';
 import AppointmentViewModal from '../../components/modal/AppointmentViewModal';
 import { AuthContext } from '../../providers/AuthProvider';
 import Swal from 'sweetalert2';
+import { toast } from 'react-toastify'; 
 
 const Appointments = () => {
     // Helper to get today's date in YYYY-MM-DD format for the date input
@@ -26,7 +27,10 @@ const Appointments = () => {
         return dayjs().format('YYYY-MM-DD');
     };
 
-    const navigate = useNavigate(); // 👈 INIT NAVIGATE
+    const navigate = useNavigate();
+
+    // --- NEW: Network Status State ---
+    const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     // Pagination & Config State
     const [limit, setLimit] = useState(10);
@@ -61,15 +65,36 @@ const Appointments = () => {
     // Time Block Modal State
     const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
 
-    // Hooks - Ensure getAppointmentById is destructured here
+    // Hooks 
     const { 
         getAppointmentsByBranch, 
         removeAppointment, 
         updateAppointment, 
-        getAppointmentById, // 👈 MAKE SURE THIS IS HERE
-        loading: appointmentsLoading 
+        getAppointmentById, 
+        loading: appointmentsLoading,
+        populateOfflineDatabase, 
+        triggerSync 
     } = useAppointment();
+    
     const { getChambersByBranch } = useChamber();
+
+    // --- Network Listeners ---
+    useEffect(() => {
+        const handleOnline = () => {
+            setIsOnline(true);
+            if (triggerSync) triggerSync();
+            toast.success("Software Online"); 
+        };
+        const handleOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
+
+        return () => {
+            window.removeEventListener('online', handleOnline);
+            window.removeEventListener('offline', handleOffline);
+        };
+    }, [triggerSync]);
 
     // Setup Search Debounce (waits 500ms after user stops typing)
     useEffect(() => {
@@ -133,6 +158,15 @@ const Appointments = () => {
         fetchAppointmentsData();
     }, [fetchAppointmentsData]);
 
+    // --- Trigger Background Full Sync when Component Mounts ---
+    useEffect(() => {
+        if (branch && isOnline) {
+            populateOfflineDatabase(branch).then(() => {
+                fetchAppointmentsData();
+            });
+        }
+    }, [branch, isOnline, populateOfflineDatabase, fetchAppointmentsData]); 
+
     // Handlers
     const handlePageChange = (newPage) => setPage(newPage);
     const handleAddClick = () => { setSelectedAppointment(null); setIsModalOpen(true); };
@@ -140,13 +174,10 @@ const Appointments = () => {
     const handleDeleteClick = (appointment) => { setAppointmentToDelete(appointment); setIsDeleteModalOpen(true); };
     const handleViewClick = (appointment) => { setViewAppointmentId(appointment._id); setIsViewModalOpen(true); };
 
-    // 👇 UPDATED PRESCRIPTION CLICK FUNCTION 👇
     const handlePrescriptionClick = async (appointment) => {
         try {
-            // Fetch the full appointment details (including preCheckup data)
             const fullAppointmentData = await getAppointmentById(appointment._id);
             
-            // Navigate to the create prescription page and pass the data in state
             navigate('/create-prescription', { 
                 state: { appointmentData: fullAppointmentData } 
             });
@@ -155,7 +186,6 @@ const Appointments = () => {
             Swal.fire('Error', 'Could not load appointment details.', 'error');
         }
     };
-    // 👆 -------------------------------------- 👆
 
     const handleUpdatePayment = async (id, status) => {
         Swal.fire({
@@ -163,8 +193,8 @@ const Appointments = () => {
             text: "Are you sure you want to mark this appointment as Collected?",
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#10b981', // green / accent
-            cancelButtonColor: '#ef4444', // red
+            confirmButtonColor: '#10b981', 
+            cancelButtonColor: '#ef4444', 
             confirmButtonText: 'Yes, collect it!'
         }).then(async (result) => {
             if (result.isConfirmed) {
@@ -196,24 +226,33 @@ const Appointments = () => {
 
     const confirmDelete = async () => {
         if (!appointmentToDelete) return;
+
+        // Decline Offline Deletion
+        if (!isOnline) {
+            toast.error("Offline — can't delete data");
+            setIsDeleteModalOpen(false);
+            setAppointmentToDelete(null);
+            return;
+        }
+
         setIsDeleting(true);
         try {
-            await removeAppointment(appointmentToDelete._id);
+            const idToDelete = appointmentToDelete.localId || appointmentToDelete._id;
+            await removeAppointment(idToDelete);
             setIsDeleteModalOpen(false);
             setAppointmentToDelete(null);
             fetchAppointmentsData();
         } catch (err) {
-            alert(`Error deleting: ${err}`);
+            toast.error(`Error deleting: ${err}`);
         } finally {
             setIsDeleting(false);
         }
     };
 
-    // New handleCollectPayment function
     const handleCollectPayment = async (appointmentId) => {
         try {
             await updateAppointment(appointmentId, { paymentStatus: "Collect" });
-            fetchAppointmentsData(); // Refresh the table to show updated status
+            fetchAppointmentsData(); 
         } catch (err) {
             alert(`Error updating payment status: ${err}`);
         }
@@ -322,7 +361,7 @@ const Appointments = () => {
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="input input-bordered input-sm w-full max-w-xs bg-transparent"
-                        title="Clear date to see all times" // Helpful tooltip
+                        title="Clear date to see all times" 
                     />
                 </div>
             </div>
@@ -330,7 +369,7 @@ const Appointments = () => {
             <div className="flex justify-between items-center mb-4">
                 <input
                     type="text"
-                    placeholder="Search patient name or phone..."
+                    placeholder="Search by ID, name or phone..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="input input-bordered input-sm w-full max-w-xs bg-transparent"
@@ -373,8 +412,14 @@ const Appointments = () => {
                                 </tr>
                             ) : (
                                 appointments.map((appt) => (
-                                    <tr key={appt._id} className="border-b border-casual-black/5 dark:border-white/5 hover:bg-casual-black/5 dark:hover:bg-white/5 transition-colors">
-                                        <td className="font-medium text-sporty-blue">{appt.appointmentId}</td>
+                                    <tr 
+                                        key={appt.localId || appt._id} 
+                                        className={`border-b border-casual-black/5 dark:border-white/5 hover:bg-casual-black/5 dark:hover:bg-white/5 transition-colors ${appt.syncStatus?.includes('pending') ? 'opacity-70' : ''}`}
+                                    >
+                                        {/* --- UPDATED: Stripping "AP" from the display string --- */}
+                                        <td className="font-medium text-sporty-blue">
+                                            {appt.appointmentId?.replace(/^AP/i, '')}
+                                        </td>
                                         <td className="text-sporty-blue font-medium">{appt.serial}</td>
                                         <td>
                                             <div className="font-medium">{appt.patientId?.fullName || '-'}</div>
@@ -415,6 +460,7 @@ const Appointments = () => {
                                                     <button
                                                         onClick={() => handleUpdatePayment(appt._id, 'Collect')}
                                                         className="btn btn-xs btn-outline border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
+                                                        disabled={appt.syncStatus === 'pending_create'}
                                                     >
                                                         Collect
                                                     </button>
@@ -428,17 +474,35 @@ const Appointments = () => {
                                         <td>
                                             <div className="flex gap-1">
                                                  {/* New Prescription Button */}
-                                                <button title="Create Prescription" onClick={() => handlePrescriptionClick(appt)} className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:border-gray-600">
+                                                <button 
+                                                    title="Create Prescription" 
+                                                    onClick={() => handlePrescriptionClick(appt)} 
+                                                    className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 dark:border-gray-600"
+                                                    disabled={appt.syncStatus === 'pending_create'}
+                                                >
                                                     <HiDocumentText className="text-blue-500" />
                                                 </button>
-                                                <button title="View" onClick={() => handleViewClick(appt)} className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800">
+                                                <button 
+                                                    title="View" 
+                                                    onClick={() => handleViewClick(appt)} 
+                                                    className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
+                                                >
                                                     <HiEye className="text-gray-600 dark:text-gray-300" />
                                                 </button>
-                                                <button title="Edit" onClick={() => handleEditClick(appt)} className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800">
+                                                <button 
+                                                    title="Edit" 
+                                                    onClick={() => handleEditClick(appt)} 
+                                                    className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-800"
+                                                    disabled={appt.syncStatus === 'pending_create'}
+                                                >
                                                     <HiPencilSquare className="text-gray-600 dark:text-gray-300" />
                                                 </button>
-                                               
-                                                <button title="Delete" onClick={() => handleDeleteClick(appt)} className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-gray-600">
+                                                
+                                                <button 
+                                                    title="Delete" 
+                                                    onClick={() => handleDeleteClick(appt)} 
+                                                    className="btn btn-xs btn-square bg-transparent border-gray-300 hover:bg-red-50 dark:hover:bg-red-900/20 dark:border-gray-600"
+                                                >
                                                     <HiTrash className="text-red-500" />
                                                 </button>
                                             </div>
@@ -497,7 +561,8 @@ const Appointments = () => {
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
                 onConfirm={confirmDelete}
-                itemName={`Appointment ${appointmentToDelete?.appointmentId || ''}`}
+                /* --- UPDATED: Stripping "AP" from the modal as well --- */
+                itemName={`Appointment ${appointmentToDelete?.appointmentId?.replace(/^AP/i, '') || ''}`}
                 isDeleting={isDeleting}
             />
 

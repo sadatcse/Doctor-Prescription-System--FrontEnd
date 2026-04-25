@@ -13,7 +13,7 @@ import {
 
 // --- ADDED IMPORTS ---
 import OfflineWarning from '../../components/common/offlineComponent';
-import { getOfflineDashboard, saveDashboardOffline } from '../../db/dashboardDb';
+import { getOfflineDashboard, saveDashboardOffline } from '../../db/MasterDB';
 // ---------------------
 
 const COLORS = ['#147bff', '#a04fff', '#00bda9', '#ccc141', '#cd3c84', '#ff7f50', '#87ceeb'];

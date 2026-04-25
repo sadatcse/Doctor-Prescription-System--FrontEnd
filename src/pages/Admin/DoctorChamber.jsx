@@ -11,7 +11,8 @@ import {
   HiInformationCircle,
   HiBanknotes,
   HiArrowPath,
-  HiUsers // <-- Added HiUsers icon here
+  HiUsers,
+  HiMagnifyingGlass
 } from "react-icons/hi2";
 import useChamber from '../../Hook/useChamber';
 import ChamberFormModal from '../../components/modal/ChamberFormModal';
@@ -19,19 +20,32 @@ import ConfirmDeleteModal from '../../components/common/ConfirmDeleteModal';
 import Pagination from '../../components/common/Pagination';
 import SectionTitle from '../../components/common/SectionTitle';
 import { AuthContext } from '../../providers/AuthProvider';
+import { toast } from 'react-toastify'; 
 
 const DoctorChamber = () => {
-  // Pagination State
-  const [limit, setLimit] = useState(12);
-  const [page, setPage] = useState(1);
   const { branch } = useContext(AuthContext);
+
+  // Network Status State
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  // Filters & Pagination State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [limit] = useState(12);
+  const [page, setPage] = useState(1);
 
   // Data State
   const [chambers, setChambers] = useState([]);
   const [paginationData, setPaginationData] = useState({ currentPage: 1, totalPages: 1 });
 
   // Hook Destructuring
-  const { getPaginatedChambers, getChambersByBranch, removeChamber, loading: chambersLoading, error: chambersError } = useChamber();
+  const { 
+    getChambersByBranch, 
+    removeChamber, 
+    triggerSync, 
+    populateOfflineDatabase, 
+    loading: chambersLoading, 
+    error: chambersError 
+  } = useChamber();
 
   // Modals States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,17 +54,17 @@ const DoctorChamber = () => {
   const [chamberToDelete, setChamberToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Fetch Chambers
+  // Fetch Chambers (Moved up so it can be used in network listener)
   const fetchChambersData = useCallback(async () => {
+    if (!branch) return;
     try {
-      let response;
-      if (branch) {
-        response = await getChambersByBranch(branch, { page, limit });
-      } else {
-        response = await getPaginatedChambers({ page, limit });
-      }
+      const response = await getChambersByBranch(branch, { 
+        page, 
+        limit,
+        search: searchTerm || undefined 
+      });
 
-      if (response && response.success) {
+      if (response?.success) {
         setChambers(response.data || []);
         setPaginationData({
           currentPage: response.pagination?.currentPage || 1,
@@ -60,7 +74,38 @@ const DoctorChamber = () => {
     } catch (err) {
       console.error("Failed to fetch chambers:", err);
     }
-  }, [page, limit, branch, getPaginatedChambers, getChambersByBranch]);
+  }, [page, limit, searchTerm, branch, getChambersByBranch]);
+
+  // --- Network Listeners ---
+  useEffect(() => {
+    const handleOnline = async () => {
+      setIsOnline(true);
+      if (triggerSync) {
+        await triggerSync();
+        // Force refresh data after sync completes
+        fetchChambersData(); 
+      }
+      toast.success("Software Online"); 
+    };
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [triggerSync, fetchChambersData]); // Added fetchChambersData to dependencies
+
+  // --- Trigger Background Sync when Component Mounts ---
+  useEffect(() => {
+    if (branch && isOnline) {
+      populateOfflineDatabase(branch).then(() => {
+        fetchChambersData();
+      });
+    }
+  }, [branch, isOnline, populateOfflineDatabase, fetchChambersData]); 
 
   useEffect(() => {
     fetchChambersData();
@@ -72,17 +117,33 @@ const DoctorChamber = () => {
   const handleEditClick = (chamber) => { setSelectedChamber(chamber); setIsModalOpen(true); };
   const handleDeleteClick = (chamber) => { setChamberToDelete(chamber); setIsDeleteModalOpen(true); };
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setPage(1);
+  };
+
   const confirmDelete = async () => {
     if (!chamberToDelete) return;
+
+    // --- DECLINE OFFLINE DELETION ---
+    if (!isOnline) {
+      toast.error("Offline — can't delete data");
+      setIsDeleteModalOpen(false);
+      setChamberToDelete(null);
+      return;
+    }
+
     setIsDeleting(true);
 
     try {
-      await removeChamber(chamberToDelete._id);
+      // Offline implementation: try localId first, fallback to _id
+      const idToDelete = chamberToDelete.localId || chamberToDelete._id;
+      await removeChamber(idToDelete);
       setIsDeleteModalOpen(false);
       setChamberToDelete(null);
       fetchChambersData();
     } catch (err) {
-      alert(`Error deleting: ${err}`);
+      toast.error(`Error deleting: ${err}`);
     } finally {
       setIsDeleting(false);
     }
@@ -105,8 +166,22 @@ const DoctorChamber = () => {
         }
       />
 
+      {/* Filtering Toolbar */}
+      <div className="bg-concrete dark:bg-white/5 dark:bg-[#121212]/5 p-4 rounded-box shadow-sm mb-6 flex flex-col md:flex-row items-center gap-4 border border-casual-black/5 dark:border-white/10 transition-colors">
+        <div className="form-control w-full md:w-auto md:flex-1 max-w-sm relative">
+          <HiMagnifyingGlass className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-casual-black/50 dark:text-concrete/50" />
+          <input
+            type="text"
+            placeholder="Search chamber by name or phone..."
+            className="input input-bordered w-full pl-10 bg-base-100 dark:bg-casual-black text-casual-black dark:text-concrete border-casual-black/20 dark:border-concrete dark:border-[#2a2a2a]/20 focus:border-sporty-blue focus:outline-none transition-colors"
+            value={searchTerm}
+            onChange={handleSearchChange}
+          />
+        </div>
+      </div>
+
       {/* Loading State */}
-      {chambersLoading && (
+      {chambersLoading && !chambers.length && (
         <div className="flex justify-center items-center py-20">
           <span className="loading loading-spinner loading-lg text-sporty-blue"></span>
         </div>
@@ -133,7 +208,7 @@ const DoctorChamber = () => {
           </div>
           <h3 className="text-2xl font-bold font-secondary text-casual-black dark:text-concrete mb-2">No chambers found</h3>
           <p className="text-casual-black/60 dark:text-concrete/60 max-w-sm">
-            You haven't added any chambers yet. Click the add button to create your first one.
+            You haven't added any chambers or none matched your search.
           </p>
         </div>
       )}
@@ -144,9 +219,17 @@ const DoctorChamber = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {chambers.map((chamber) => (
               <div
-                key={chamber._id}
-                className="card bg-base-100 dark:bg-[#1a1a1a] border border-casual-black/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden relative group"
+                key={chamber.localId || chamber._id}
+                className={`card bg-base-100 dark:bg-[#1a1a1a] border border-casual-black/10 dark:border-white/10 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-full overflow-hidden relative group ${chamber.syncStatus?.includes('pending') ? 'opacity-70' : ''}`}
               >
+                {/* Pending Sync Indicator */}
+                {chamber.syncStatus === 'pending_create' && (
+                  <span className="absolute top-3 right-3 flex h-3 w-3 z-10" title="Waiting for internet to sync">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-warning"></span>
+                  </span>
+                )}
+
                 {/* Top Accent Gradient Line */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sporty-blue to-fascinating-magenta opacity-70 group-hover:opacity-100 transition-opacity"></div>
 
@@ -155,7 +238,7 @@ const DoctorChamber = () => {
                   {/* Card Header: Name */}
                   <div>
                     <h2 className="card-title text-xl font-bold text-casual-black dark:text-concrete font-secondary leading-tight line-clamp-2 group-hover:text-sporty-blue transition-colors">
-                      {chamber.chamberName || 'Unnamed Chamber'}
+                      {chamber.name || chamber.chamberName || 'Unnamed Chamber'}
                     </h2>
                   </div>
 
@@ -173,7 +256,7 @@ const DoctorChamber = () => {
                       <div className="p-1.5 bg-sporty-blue/10 text-sporty-blue rounded-lg shrink-0">
                         <HiPhone className="h-4 w-4" />
                       </div>
-                      <span className="font-medium pt-0.5">{chamber.mobileNumber || '-'}</span>
+                      <span className="font-medium pt-0.5">{chamber.phone || chamber.mobileNumber || '-'}</span>
                     </div>
 
                     {/* Fees Section */}
@@ -182,7 +265,7 @@ const DoctorChamber = () => {
                         <HiBanknotes className="h-4 w-4" />
                       </div>
                       <span className="pt-0.5 flex items-center gap-2 flex-wrap">
-                        <span>New: <strong className="text-casual-black dark:text-concrete">{chamber.consultancyFee ? `৳${chamber.consultancyFee}` : 'N/A'}</strong></span>
+                        <span>New: <strong className="text-casual-black dark:text-concrete">{chamber.newFee || chamber.consultancyFee ? `৳${chamber.newFee || chamber.consultancyFee}` : 'N/A'}</strong></span>
                         {chamber.oldConsultancyFee && (
                           <span className="text-xs border-l border-casual-black/20 dark:border-concrete/20 pl-2">
                             Old: <strong className="text-casual-black dark:text-concrete">৳{chamber.oldConsultancyFee}</strong>
@@ -197,7 +280,7 @@ const DoctorChamber = () => {
                         <HiArrowPath className="h-4 w-4" />
                       </div>
                       <span className="pt-0.5">
-                        Follow-up: <strong className="text-casual-black dark:text-concrete">{chamber.followUpDay ? `Within ${chamber.followUpDay} Days` : 'N/A'}</strong>
+                        Follow-up: <strong className="text-casual-black dark:text-concrete">{chamber.followUpFee || chamber.followUpDay ? (chamber.followUpFee ? `৳${chamber.followUpFee}` : `Within ${chamber.followUpDay} Days`) : 'N/A'}</strong>
                       </span>
                     </div>
 
@@ -206,20 +289,19 @@ const DoctorChamber = () => {
                         <HiCalendarDays className="h-4 w-4" />
                       </div>
                       <span className="pt-0.5">
-                        Adv. Booking: <strong className="text-casual-black dark:text-concrete">{chamber.advanceBookingDays ? `${chamber.advanceBookingDays} Days` : 'N/A'}</strong>
+                        Adv. Booking: <strong className="text-casual-black dark:text-concrete">{chamber.advBooking || chamber.advanceBookingDays ? `${chamber.advBooking || chamber.advanceBookingDays} Days` : 'N/A'}</strong>
                       </span>
                     </div>
 
-                    {/* --- Newly Added: Max Patients Section --- */}
+                    {/* Max Patients Section */}
                     <div className="flex items-center gap-3">
                       <div className="p-1.5 bg-purple-500/10 text-purple-600 dark:text-purple-400 rounded-lg shrink-0">
                         <HiUsers className="h-4 w-4" />
                       </div>
                       <span className="pt-0.5">
-                        Max Patients/Day: <strong className="text-casual-black dark:text-concrete">{chamber.maxDailyPatient ? chamber.maxDailyPatient : 'N/A'}</strong>
+                        Max Patients/Day: <strong className="text-casual-black dark:text-concrete">{chamber.maxPatients || chamber.maxDailyPatient ? chamber.maxPatients || chamber.maxDailyPatient : 'N/A'}</strong>
                       </span>
                     </div>
-                    {/* ----------------------------------------- */}
 
                     {/* Styled Description Box */}
                     {chamber.description && (
@@ -279,6 +361,7 @@ const DoctorChamber = () => {
                     <button
                       onClick={() => handleEditClick(chamber)}
                       className="btn btn-sm bg-sporty-blue/10 hover:bg-sporty-blue text-sporty-blue hover:text-white border-none flex-1 gap-2 font-secondary transition-all"
+                      disabled={chamber.syncStatus === 'pending_create'}
                     >
                       <HiPencilSquare className="h-4 w-4" />
                       Edit
@@ -321,7 +404,7 @@ const DoctorChamber = () => {
         isOpen={isDeleteModalOpen}
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={confirmDelete}
-        itemName={chamberToDelete?.chamberName || 'this chamber'}
+        itemName={chamberToDelete?.name || chamberToDelete?.chamberName || 'this chamber'}
         isDeleting={isDeleting}
       />
     </div>
