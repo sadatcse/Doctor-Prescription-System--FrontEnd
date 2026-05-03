@@ -115,7 +115,7 @@ const Hero = () => {
 
               <div className="flex flex-wrap gap-6 mb-16">
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate('/demo-login')}
                   className="btn-primary group relative overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center gap-2">
@@ -272,7 +272,7 @@ const Hero = () => {
               <div className="aspect-video w-full bg-casual-black flex items-center justify-center">
                 <iframe
                   className="w-full h-full"
-                  src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1"
+                  src="https://www.youtube.com/embed/39DH-GlmRzw?start=76&autoplay=1&mute=1"
                   title="Software Demo Video"
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -737,8 +737,8 @@ const Pricing = () => {
               viewport={{ once: true }}
               transition={{ delay: index * 0.1 }}
               className={`relative p-8 rounded-[2.5rem] border transition-all duration-500 hover:scale-[1.02] flex flex-col ${plan.popular
-                  ? "bg-white text-casual-black border-sporty-blue shadow-[0_40px_80px_-15px_rgba(0,102,255,0.3)]"
-                  : `bg-white/5 ${plan.accent} text-white backdrop-blur-sm`
+                ? "bg-white text-casual-black border-sporty-blue shadow-[0_40px_80px_-15px_rgba(0,102,255,0.3)]"
+                : `bg-white/5 ${plan.accent} text-white backdrop-blur-sm`
                 }`}
             >
               {plan.popular && (
@@ -767,8 +767,8 @@ const Pricing = () => {
               </div>
 
               <button className={`w-full py-4 rounded-xl font-black text-base transition-all active:scale-95 font-secondary ${plan.popular
-                  ? "bg-sporty-blue text-white shadow-xl shadow-sporty-blue/30 hover:bg-psychedelic-violet"
-                  : "bg-white/10 text-white hover:bg-white/20"
+                ? "bg-sporty-blue text-white shadow-xl shadow-sporty-blue/30 hover:bg-psychedelic-violet"
+                : "bg-white/10 text-white hover:bg-white/20"
                 }`}>
                 {plan.button}
               </button>

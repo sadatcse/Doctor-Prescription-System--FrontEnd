@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 // Existing Roots & Pages
 import Error404 from "../pages/Error404/Error";
 import Login from "../pages/Login/Login";
+import DemoLogin from "../pages/Login/DemoLogin";
 import Root from "./Root/Root";
 import PrivateRoot from "./Root/PrivateRoot";
 import PermissionPrivateRoute from "./Root/PermissionPrivateRoute";
@@ -94,6 +95,10 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/demo-login",
+    element: <DemoLogin />,
   },
   {
     path: "/doctorwebsite",
